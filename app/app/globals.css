@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+:root {
+  /* Updated color tokens for SolanaForge fintech aesthetic */
+  --background: oklch(0.98 0.002 106.423);
+  --foreground: oklch(0.278 0.029 256.848);
+  --card: oklch(0.98 0.002 106.423);
+  --card-foreground: oklch(0.278 0.029 256.848);
+  --popover: oklch(0.98 0.002 106.423);
+  --popover-foreground: oklch(0.278 0.029 256.848);
+  --primary: oklch(0.507 0.176 162.68);
+  --primary-foreground: oklch(0.98 0.002 106.423);
+  --secondary: oklch(0.941 0.013 106.423);
+  --secondary-foreground: oklch(0.278 0.029 256.848);
+  --muted: oklch(0.941 0.013 106.423);
+  --muted-foreground: oklch(0.556 0.016 256.848);
+  --accent: oklch(0.584 0.162 162.68);
+  --accent-foreground: oklch(0.98 0.002 106.423);
+  --destructive: oklch(0.628 0.258 29.234);
+  --destructive-foreground: oklch(0.98 0.002 106.423);
+  --border: oklch(0.898 0.013 106.423);
+  --input: oklch(0.898 0.013 106.423);
+  --ring: oklch(0.507 0.176 162.68);
+  --chart-1: oklch(0.584 0.162 162.68);
+  --chart-2: oklch(0.631 0.206 271.75);
+  --chart-3: oklch(0.801 0.136 85.87);
+  --chart-4: oklch(0.628 0.258 29.234);
+  --chart-5: oklch(0.678 0.18 308.85);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.941 0.013 106.423);
+  --sidebar-foreground: oklch(0.278 0.029 256.848);
+  --sidebar-primary: oklch(0.507 0.176 162.68);
+  --sidebar-primary-foreground: oklch(0.98 0.002 106.423);
+  --sidebar-accent: oklch(0.584 0.162 162.68);
+  --sidebar-accent-foreground: oklch(0.98 0.002 106.423);
+  --sidebar-border: oklch(0.898 0.013 106.423);
+  --sidebar-ring: oklch(0.507 0.176 162.68);
+  --font-dm-sans: "DM Sans", sans-serif;
+  --font-space-grotesk: "Space Grotesk", sans-serif;
+}
+
+.dark {
+  /* Updated dark mode tokens for professional crypto trading interface */
+  --background: oklch(0.111 0.014 256.848);
+  --foreground: oklch(0.941 0.013 106.423);
+  --card: oklch(0.156 0.015 256.848);
+  --card-foreground: oklch(0.98 0.002 106.423);
+  --popover: oklch(0.156 0.015 256.848);
+  --popover-foreground: oklch(0.98 0.002 106.423);
+  --primary: oklch(0.507 0.176 162.68);
+  --primary-foreground: oklch(0.98 0.002 106.423);
+  --secondary: oklch(0.222 0.017 256.848);
+  --secondary-foreground: oklch(0.98 0.002 106.423);
+  --muted: oklch(0.222 0.017 256.848);
+  --muted-foreground: oklch(0.708 0.013 256.848);
+  --accent: oklch(0.584 0.162 162.68);
+  --accent-foreground: oklch(0.98 0.002 106.423);
+  --destructive: oklch(0.628 0.258 29.234);
+  --destructive-foreground: oklch(0.98 0.002 106.423);
+  --border: oklch(0.222 0.017 256.848);
+  --input: oklch(0.222 0.017 256.848);
+  --ring: oklch(0.507 0.176 162.68);
+  --chart-1: oklch(0.584 0.162 162.68);
+  --chart-2: oklch(0.631 0.206 271.75);
+  --chart-3: oklch(0.801 0.136 85.87);
+  --chart-4: oklch(0.628 0.258 29.234);
+  --chart-5: oklch(0.678 0.18 308.85);
+  --sidebar: oklch(0.156 0.015 256.848);
+  --sidebar-foreground: oklch(0.941 0.013 106.423);
+  --sidebar-primary: oklch(0.507 0.176 162.68);
+  --sidebar-primary-foreground: oklch(0.98 0.002 106.423);
+  --sidebar-accent: oklch(0.584 0.162 162.68);
+  --sidebar-accent-foreground: oklch(0.98 0.002 106.423);
+  --sidebar-border: oklch(0.222 0.017 256.848);
+  --sidebar-ring: oklch(0.507 0.176 162.68);
+}
+
+:root {
+  /* Updated font variables to use Space Grotesk and DM Sans */
+  --font-sans: var(--font-dm-sans);
+  --font-serif: var(--font-space-grotesk);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+}
