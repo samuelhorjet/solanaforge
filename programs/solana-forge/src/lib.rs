@@ -8,7 +8,7 @@ use anchor_spl::{
 };
 
 // Program ID - This will be updated after you deploy
-declare_id!("7hC82veS135Xs4QN9MJW35BvjisnpKfoEs7aEYC23MHp");
+declare_id!("DqgCoHx1ncV6PzVYVg7bRxj4KQ5XrxhpPTT5qqe2FR99");
 
 #[program]
 pub mod solana_forge {

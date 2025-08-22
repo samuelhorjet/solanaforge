@@ -4,17 +4,28 @@ import React, { useState } from "react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useProgram } from "@/components/solana-provider"
 import * as anchor from "@project-serum/anchor"
-import { Keypair, SystemProgram, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js"
+import {
+  Keypair,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+} from "@solana/web3.js"
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Coins, Upload, AlertCircle, CheckCircle } from "lucide-react"
+import { Coins } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface TokenCreationFormProps {
@@ -22,8 +33,11 @@ interface TokenCreationFormProps {
   onCancel: () => void
 }
 
-export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFormProps) {
-  const { wallet, publicKey, sendTransaction } = useWallet()
+export function TokenCreationForm({
+  onTokenCreated,
+  onCancel,
+}: TokenCreationFormProps) {
+  const { publicKey } = useWallet()
   const { program } = useProgram()
   const [formData, setFormData] = useState({
     name: "",
@@ -40,7 +54,8 @@ export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFor
     const newErrors: Record<string, string> = {}
     if (!formData.name.trim()) newErrors.name = "Token name is required"
     if (!formData.symbol.trim()) newErrors.symbol = "Token symbol is required"
-    if (formData.symbol.length > 10) newErrors.symbol = "Symbol must be 10 characters or less"
+    if (formData.symbol.length > 10)
+      newErrors.symbol = "Symbol must be 10 characters or less"
     if (!formData.initialSupply || Number.parseFloat(formData.initialSupply) <= 0) {
       newErrors.initialSupply = "Initial supply must be greater than 0"
     }
@@ -50,7 +65,7 @@ export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validateForm() || !publicKey || !program || !wallet) return
+    if (!validateForm() || !publicKey || !program) return
 
     setIsCreating(true)
     setSignature(null)
@@ -63,28 +78,31 @@ export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFor
       const balance = await connection.getBalance(publicKey)
       if (balance < 0.1 * LAMPORTS_PER_SOL) {
         console.log("Requesting airdrop of 2 SOL on Devnet...")
-        const sig = await connection.requestAirdrop(publicKey, 2 * LAMPORTS_PER_SOL)
+        const sig = await connection.requestAirdrop(
+          publicKey,
+          2 * LAMPORTS_PER_SOL
+        )
         await connection.confirmTransaction(sig, "confirmed")
         console.log("Airdrop complete!")
       }
 
-      // 1. Generate a new mint
+      // 1. Generate mint
       const mintKeypair = Keypair.generate()
       const mint = mintKeypair.publicKey
 
-      // 2. Build PDA seeds for token_account
+      // 2. Derive PDA for token_account
       const constantSeed = Buffer.from([
-        6,221,246,225,215,101,161,147,
-        217,203,225,70,206,235,121,172,
-        28,180,133,237,95,91,55,145,
-        58,140,245,133,126,255,0,169
+        6, 221, 246, 225, 215, 101, 161, 147,
+        217, 203, 225, 70, 206, 235, 121, 172,
+        28, 180, 133, 237, 95, 91, 55, 145,
+        58, 140, 245, 133, 126, 255, 0, 169,
       ])
 
       const programBytes = new Uint8Array([
-        140,151,37,143,78,36,137,241,
-        187,61,16,41,20,142,13,131,
-        11,90,19,153,218,255,16,132,
-        4,142,123,216,219,233,248,89
+        140, 151, 37, 143, 78, 36, 137, 241,
+        187, 61, 16, 41, 20, 142, 13, 131,
+        11, 90, 19, 153, 218, 255, 16, 132,
+        4, 142, 123, 216, 219, 233, 248, 89,
       ])
       const pdaProgramId = new PublicKey(programBytes)
 
@@ -93,11 +111,11 @@ export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFor
         pdaProgramId
       )
 
-      // 3. Call the instruction
-      const tx = await program.methods
+      // 3. Call program with rpc()
+      const sig = await program.methods
         .createToken(
-          Number(formData.decimals),                    // u8
-          new anchor.BN(formData.initialSupply)         // u64
+          Number(formData.decimals), // u8
+          new anchor.BN(formData.initialSupply) // u64
         )
         .accounts({
           mint,
@@ -107,18 +125,14 @@ export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFor
           associated_token_program: ASSOCIATED_TOKEN_PROGRAM_ID,
           system_program: SystemProgram.programId,
         })
-        .signers([mintKeypair])
-        .transaction()
-
-      // 4. Send and confirm
-      const sig = await sendTransaction(tx, connection, { signers: [mintKeypair] })
-      await connection.confirmTransaction(sig, "confirmed")
+        .signers([mintKeypair]) // ✅ Anchor handles this now
+        .rpc()
 
       setSignature(sig)
 
-      // 5. Pass back to parent
+      // 4. Pass back to parent
       const newToken = {
-        id: `token_${Date.now()}`,
+        id: crypto.randomUUID(), // avoids hydration mismatch
         name: formData.name,
         symbol: formData.symbol,
         description: formData.description,
@@ -129,7 +143,6 @@ export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFor
         status: "active",
       }
       onTokenCreated(newToken)
-
     } catch (error: any) {
       console.error("Failed to create token:", error)
       setErrors({ form: error.message || "An unknown error occurred" })
@@ -159,121 +172,90 @@ export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFor
         </div>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              This will create a new SPL token on Solana Devnet. Make sure all details are correct before proceeding.
-            </AlertDescription>
-          </Alert>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Token Name *</Label>
-              <Input
-                id="name"
-                placeholder="e.g., My Awesome Token"
-                value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
-                className={errors.name ? "border-destructive" : ""}
-              />
-              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="symbol">Token Symbol *</Label>
-              <Input
-                id="symbol"
-                placeholder="e.g., MAT"
-                value={formData.symbol}
-                onChange={(e) => handleInputChange("symbol", e.target.value.toUpperCase())}
-                className={errors.symbol ? "border-destructive" : ""}
-                maxLength={10}
-              />
-              {errors.symbol && <p className="text-sm text-destructive">{errors.symbol}</p>}
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Name</Label>
+            <Input
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              required
+            />
+            {errors.name && (
+              <p className="text-sm text-red-500">{errors.name}</p>
+            )}
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+          <div>
+            <Label>Symbol</Label>
+            <Input
+              value={formData.symbol}
+              onChange={(e) => handleInputChange("symbol", e.target.value)}
+              required
+            />
+            {errors.symbol && (
+              <p className="text-sm text-red-500">{errors.symbol}</p>
+            )}
+          </div>
+          <div>
+            <Label>Description</Label>
             <Textarea
-              id="description"
-              placeholder="Describe your token's purpose and utility..."
               value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              rows={3}
+              onChange={(e) =>
+                handleInputChange("description", e.target.value)
+              }
             />
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="decimals">Decimals</Label>
-              <Input
-                id="decimals"
-                type="number"
-                min="0"
-                max="18"
-                value={formData.decimals}
-                onChange={(e) => handleInputChange("decimals", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Standard is 9 for most tokens</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="supply">Initial Supply *</Label>
-              <Input
-                id="supply"
-                type="number"
-                min="1"
-                placeholder="1000000"
-                value={formData.initialSupply}
-                onChange={(e) => handleInputChange("initialSupply", e.target.value)}
-                className={errors.initialSupply ? "border-destructive" : ""}
-              />
-              {errors.initialSupply && <p className="text-sm text-destructive">{errors.initialSupply}</p>}
-            </div>
+          <div>
+            <Label>Decimals</Label>
+            <Input
+              type="number"
+              value={formData.decimals}
+              onChange={(e) => handleInputChange("decimals", e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label>Initial Supply</Label>
+            <Input
+              type="number"
+              value={formData.initialSupply}
+              onChange={(e) =>
+                handleInputChange("initialSupply", e.target.value)
+              }
+              required
+            />
+            {errors.initialSupply && (
+              <p className="text-sm text-red-500">{errors.initialSupply}</p>
+            )}
           </div>
 
+          {errors.form && (
+            <Alert variant="destructive">
+              <AlertDescription>{errors.form}</AlertDescription>
+            </Alert>
+          )}
+
           {signature && (
-            <Alert variant="default" className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Token created successfully!
+            <Alert>
+              <AlertDescription>
+                ✅ Token created! Transaction:{" "}
                 <a
-                  href={`https://solscan.io/tx/${signature}?cluster=devnet`}
+                  href={`https://explorer.solana.com/tx/${signature}?cluster=devnet`}
                   target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium underline ml-2"
+                  rel="noreferrer"
+                  className="underline text-blue-500"
                 >
-                  View Transaction
+                  View on Explorer
                 </a>
               </AlertDescription>
             </Alert>
           )}
 
-          {errors.form && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{errors.form}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel} className="flex-1 bg-transparent">
-              Cancel
+          <div className="flex gap-2 pt-2">
+            <Button type="submit" disabled={isCreating}>
+              {isCreating ? "Creating..." : "Create Token"}
             </Button>
-            <Button type="submit" disabled={isCreating} className="flex-1">
-              {isCreating ? (
-                <>
-                  <Upload className="h-4 w-4 mr-2 animate-spin" />
-                  Creating Token...
-                </>
-              ) : (
-                <>
-                  <Coins className="h-4 w-4 mr-2" />
-                  Create Token
-                </>
-              )}
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
             </Button>
           </div>
         </form>
