@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { ArrowLeftRight, ArrowUpDown, Settings, AlertTriangle, Zap } from "lucide-react"
+import { ArrowLeftRight, ArrowUpDown, Settings, AlertTriangle, Zap, TrendingUp } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface TokenSwapInterfaceProps {
@@ -108,30 +108,35 @@ export function TokenSwapInterface({ tokens, onSwapComplete }: TokenSwapInterfac
   const isInsufficientBalance = fromAmount && Number.parseFloat(fromAmount) > getTokenBalance(fromToken)
 
   return (
-    <div className="space-y-6">
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
+    <div className="space-y-6 animate-slide-up">
+      <Card className="card-fintech w-full max-w-md mx-auto">
+        <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <ArrowLeftRight className="h-5 w-5 text-primary" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 text-primary-foreground shadow-lg">
+                <ArrowLeftRight className="h-6 w-6" />
               </div>
               <div>
-                <CardTitle className="font-serif">Token Swap</CardTitle>
+                <CardTitle className="font-serif text-xl">Token Swap</CardTitle>
                 <CardDescription>Swap tokens with best rates</CardDescription>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettings(!showSettings)}
+              className="h-10 w-10 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-200"
+            >
               <Settings className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {showSettings && (
-            <Card className="bg-muted/50">
+            <Card className="card-fintech bg-muted/30 animate-fade-in">
               <CardContent className="pt-4 space-y-4">
-                <div className="space-y-2">
-                  <Label>Slippage Tolerance: {slippage[0]}%</Label>
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Slippage Tolerance: {slippage[0]}%</Label>
                   <Slider
                     value={slippage}
                     onValueChange={setSlippage}
@@ -144,10 +149,14 @@ export function TokenSwapInterface({ tokens, onSwapComplete }: TokenSwapInterfac
                     {[0.1, 0.5, 1.0].map((value) => (
                       <Button
                         key={value}
-                        variant="outline"
+                        variant={slippage[0] === value ? "default" : "outline"}
                         size="sm"
                         onClick={() => setSlippage([value])}
-                        className="text-xs bg-transparent"
+                        className={
+                          slippage[0] === value
+                            ? "btn-fintech text-xs h-8"
+                            : "text-xs h-8 bg-transparent hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
+                        }
                       >
                         {value}%
                       </Button>
@@ -159,12 +168,12 @@ export function TokenSwapInterface({ tokens, onSwapComplete }: TokenSwapInterfac
           )}
 
           {/* From Token */}
-          <div className="space-y-2">
-            <Label>From</Label>
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-2">
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">From</Label>
+            <Card className="card-fintech p-4 bg-muted/20">
+              <div className="flex items-center justify-between mb-3">
                 <Select value={fromToken} onValueChange={setFromToken}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-32 h-10 bg-background hover:bg-muted/50 transition-colors duration-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -177,7 +186,12 @@ export function TokenSwapInterface({ tokens, onSwapComplete }: TokenSwapInterfac
                 </Select>
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Balance: {getTokenBalance(fromToken)}</p>
-                  <Button variant="link" size="sm" onClick={handleMaxAmount} className="h-auto p-0 text-xs">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={handleMaxAmount}
+                    className="h-auto p-0 text-xs text-primary hover:text-primary/80 transition-colors duration-200"
+                  >
                     MAX
                   </Button>
                 </div>
@@ -187,26 +201,35 @@ export function TokenSwapInterface({ tokens, onSwapComplete }: TokenSwapInterfac
                 placeholder="0.00"
                 value={fromAmount}
                 onChange={(e) => setFromAmount(e.target.value)}
-                className={`text-lg font-medium ${isInsufficientBalance ? "border-destructive" : ""}`}
+                className={`text-lg font-medium h-12 transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                  isInsufficientBalance ? "border-destructive focus:border-destructive" : "focus:border-primary"
+                }`}
               />
-              {isInsufficientBalance && <p className="text-sm text-destructive mt-1">Insufficient balance</p>}
+              {isInsufficientBalance && (
+                <p className="text-sm text-destructive mt-2 animate-fade-in">Insufficient balance</p>
+              )}
             </Card>
           </div>
 
           {/* Swap Button */}
           <div className="flex justify-center">
-            <Button variant="ghost" size="sm" onClick={handleSwapTokens} className="rounded-full p-2">
-              <ArrowUpDown className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSwapTokens}
+              className="rounded-full p-3 h-12 w-12 hover:bg-primary/10 hover:text-primary hover:scale-110 transition-all duration-300 border border-border hover:border-primary/30"
+            >
+              <ArrowUpDown className="h-5 w-5" />
             </Button>
           </div>
 
           {/* To Token */}
-          <div className="space-y-2">
-            <Label>To</Label>
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-2">
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">To</Label>
+            <Card className="card-fintech p-4 bg-muted/20">
+              <div className="flex items-center justify-between mb-3">
                 <Select value={toToken} onValueChange={setToToken}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-32 h-10 bg-background hover:bg-muted/50 transition-colors duration-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -226,28 +249,28 @@ export function TokenSwapInterface({ tokens, onSwapComplete }: TokenSwapInterfac
                 placeholder="0.00"
                 value={toAmount}
                 readOnly
-                className="text-lg font-medium bg-muted"
+                className="text-lg font-medium h-12 bg-muted/50"
               />
             </Card>
           </div>
 
           {/* Swap Info */}
           {swapRate > 0 && (
-            <Card className="bg-muted/50">
-              <CardContent className="pt-4 space-y-2">
+            <Card className="card-fintech bg-gradient-to-r from-muted/30 to-muted/10 animate-fade-in">
+              <CardContent className="pt-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span>Rate</span>
-                  <span>
-                    1 {fromToken} = {swapRate.toFixed(6)} {toToken}
+                  <span className="text-muted-foreground">Rate</span>
+                  <span className="font-medium flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3 text-green-500" />1 {fromToken} = {swapRate.toFixed(6)} {toToken}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Slippage Tolerance</span>
-                  <span>{slippage[0]}%</span>
+                  <span className="text-muted-foreground">Slippage Tolerance</span>
+                  <span className="font-medium">{slippage[0]}%</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Minimum Received</span>
-                  <span>
+                  <span className="text-muted-foreground">Minimum Received</span>
+                  <span className="font-medium">
                     {(Number.parseFloat(toAmount) * (1 - slippage[0] / 100)).toFixed(6)} {toToken}
                   </span>
                 </div>
@@ -259,25 +282,25 @@ export function TokenSwapInterface({ tokens, onSwapComplete }: TokenSwapInterfac
           <Button
             onClick={handleSwap}
             disabled={!fromAmount || !toAmount || isInsufficientBalance || isSwapping}
-            className="w-full"
+            className="btn-fintech w-full h-14 text-base font-medium"
             size="lg"
           >
             {isSwapping ? (
               <>
-                <Zap className="h-4 w-4 mr-2 animate-pulse" />
+                <Zap className="h-5 w-5 mr-2 animate-pulse" />
                 Swapping...
               </>
             ) : (
               <>
-                <ArrowLeftRight className="h-4 w-4 mr-2" />
+                <ArrowLeftRight className="h-5 w-5 mr-2" />
                 Swap Tokens
               </>
             )}
           </Button>
 
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="text-xs">
+          <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-xs text-amber-700 dark:text-amber-300">
               This is a demo interface. Actual swaps would be executed through Jupiter or Serum DEX on Solana.
             </AlertDescription>
           </Alert>

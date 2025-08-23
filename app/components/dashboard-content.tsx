@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@solana/wallet-adapter-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,16 +10,17 @@ import { TokenList } from "@/components/token-list"
 import { TokenSwapInterface } from "@/components/token-swap-interface"
 import { SwapHistory } from "@/components/swap-history"
 import { TransactionHistory } from "@/components/transaction-history"
-import { TrendingUp, TrendingDown, Plus, ArrowUpRight, Wallet, Coins, ArrowLeftRight } from "lucide-react"
+import { SettingsPanel } from "@/components/settings-panel"
+import { TrendingUp, Plus, ArrowUpRight, Wallet, Coins, ArrowLeftRight } from "lucide-react"
 
 interface DashboardContentProps {
   activeSection: string
   walletAddress: string
-  onSectionChange: (section: string) => void;
+  onSectionChange: (section: string) => void
 }
 
 export function DashboardContent({ activeSection, walletAddress, onSectionChange }: DashboardContentProps) {
-  const { disconnect } = useWallet();
+  const { disconnect } = useWallet()
   const [tokens, setTokens] = useState<any[]>([])
   const [swaps, setSwaps] = useState<any[]>([])
   const [showTokenForm, setShowTokenForm] = useState(false)
@@ -28,14 +29,14 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
     setTokens((prev) => [...prev, newToken])
     setShowTokenForm(false)
     // Switch to the token list view after creation
-    onSectionChange("tokens");
+    onSectionChange("tokens")
   }
 
   const handleTokenAction = (action: string, token: any) => {
-    if (action === 'view' && token.mintAddress) {
+    if (action === "view" && token.mintAddress) {
       // Open Solscan in a new tab to view token details
-      const url = `https://solscan.io/token/${token.mintAddress}?cluster=devnet`;
-      window.open(url, '_blank');
+      const url = `https://solscan.io/token/${token.mintAddress}?cluster=devnet`
+      window.open(url, "_blank")
     }
   }
 
@@ -44,33 +45,31 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
   }
 
   const renderDashboardOverview = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-slide-up">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold font-serif">Dashboard Overview</h2>
-        <Button className="gap-2" onClick={() => onSectionChange('tokens')}>
+        <Button className="btn-fintech gap-2" onClick={() => onSectionChange("tokens")}>
           <Plus className="h-4 w-4" />
           Create Token
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="card-fintech">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Wallet Balance</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <Wallet className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">-.-- SOL</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              Loading...
-            </p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">Loading...</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="card-fintech">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Created Tokens</CardTitle>
-            <Coins className="h-4 w-4 text-muted-foreground" />
+            <Coins className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{tokens.length}</div>
@@ -82,10 +81,10 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="card-fintech">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Swaps</CardTitle>
-            <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+            <ArrowLeftRight className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{swaps.length}</div>
@@ -97,22 +96,20 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="card-fintech">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Portfolio Value</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">$0.00</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              Loading...
-            </p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">Loading...</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="card-fintech">
           <CardHeader>
             <CardTitle className="font-serif">Recent Activity</CardTitle>
             <CardDescription>Your latest transactions and activities</CardDescription>
@@ -122,7 +119,10 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
               {tokens.length > 0 || swaps.length > 0 ? (
                 <div className="space-y-3">
                   {swaps.slice(0, 2).map((swap) => (
-                    <div key={swap.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <div
+                      key={swap.id}
+                      className="flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors duration-200"
+                    >
                       <ArrowLeftRight className="h-4 w-4 text-primary" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">
@@ -133,7 +133,10 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
                     </div>
                   ))}
                   {tokens.slice(0, 3 - swaps.length).map((token) => (
-                    <div key={token.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <div
+                      key={token.id}
+                      className="flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors duration-200"
+                    >
                       <Coins className="h-4 w-4 text-primary" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Created {token.name}</p>
@@ -153,7 +156,7 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="card-fintech">
           <CardHeader>
             <CardTitle className="font-serif">Quick Actions</CardTitle>
             <CardDescription>Common tasks and shortcuts</CardDescription>
@@ -161,26 +164,26 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
           <CardContent className="space-y-3">
             <Button
               variant="outline"
-              className="w-full justify-start gap-3 bg-transparent"
-              onClick={() => onSectionChange('tokens')}
+              className="w-full justify-start gap-3 bg-transparent hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
+              onClick={() => onSectionChange("tokens")}
             >
               <Plus className="h-4 w-4" />
               Create New Token
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start gap-3 bg-transparent"
-              onClick={() => onSectionChange('swaps')}
+              className="w-full justify-start gap-3 bg-transparent hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
+              onClick={() => onSectionChange("swaps")}
             >
               <ArrowLeftRight className="h-4 w-4" />
               Swap Tokens
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start gap-3 bg-transparent"
+              className="w-full justify-start gap-3 bg-transparent hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
               onClick={() => {
-                const url = `https://solscan.io/account/${walletAddress}?cluster=devnet`;
-                window.open(url, '_blank');
+                const url = `https://solscan.io/account/${walletAddress}?cluster=devnet`
+                window.open(url, "_blank")
               }}
             >
               <ArrowUpRight className="h-4 w-4" />
@@ -195,17 +198,17 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
   const renderTokenManagement = () => {
     if (showTokenForm) {
       return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-slide-up">
           <TokenCreationForm onTokenCreated={handleTokenCreated} onCancel={() => setShowTokenForm(false)} />
         </div>
       )
     }
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-slide-up">
         <div className="flex items-center justify-between">
           <h2 className="text-3xl font-bold font-serif">Token Management</h2>
-          <Button className="gap-2" onClick={() => setShowTokenForm(true)}>
+          <Button className="btn-fintech gap-2" onClick={() => setShowTokenForm(true)}>
             <Plus className="h-4 w-4" />
             Create Token
           </Button>
@@ -216,10 +219,10 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
   }
 
   const renderTokenSwaps = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-slide-up">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold font-serif">Token Swaps</h2>
-        <Badge variant="default" className="bg-primary text-primary-foreground">
+        <Badge variant="default" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white animate-pulse">
           Live
         </Badge>
       </div>
@@ -233,7 +236,7 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
   )
 
   const renderTransactionHistory = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-slide-up">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold font-serif">Transaction History</h2>
         <Badge variant="default" className="bg-primary text-primary-foreground">
@@ -244,46 +247,7 @@ export function DashboardContent({ activeSection, walletAddress, onSectionChange
     </div>
   )
 
-  const renderSettings = () => (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold font-serif">Settings</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif">Network Settings</CardTitle>
-            <CardDescription>Configure your Solana network preferences</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Current Network</span>
-              <Badge variant="secondary" className="bg-primary/10 text-primary">
-                Devnet
-              </Badge>
-            </div>
-            <Button variant="outline" className="w-full bg-transparent">
-              Switch to Mainnet
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif">Wallet Settings</CardTitle>
-            <CardDescription>Manage your wallet connection and preferences</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Connected Wallet</span>
-              <div className="p-2 bg-muted rounded text-xs font-mono truncate">{walletAddress}</div>
-            </div>
-            <Button variant="outline" className="w-full bg-transparent" onClick={disconnect}>
-              Disconnect Wallet
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
+  const renderSettings = () => <SettingsPanel walletAddress={walletAddress} />
 
   switch (activeSection) {
     case "tokens":

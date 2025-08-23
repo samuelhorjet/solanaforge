@@ -26,7 +26,7 @@ import {
   Coins,
   ArrowLeftRight,
   Send,
-  ReceiptIcon as Receive,
+  Receipt as Receive,
   Calendar,
   CheckCircle,
   Clock,
@@ -97,36 +97,6 @@ export function TransactionHistory({ tokens, swaps }: TransactionHistoryProps) {
         description: `Swapped ${swap.fromAmount} ${swap.fromToken} for ${swap.toAmount.toFixed(6)} ${swap.toToken}`,
       })
     })
-
-    // Add some mock additional transactions for demonstration
-    const mockTransactions: Transaction[] = [
-      {
-        id: "transfer_1",
-        type: "transfer_out",
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        status: "completed",
-        txHash: "abc123...def456",
-        token: "SOL",
-        amount: 0.5,
-        recipient: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
-        fee: 0.000005,
-        description: "Sent 0.5 SOL to 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
-      },
-      {
-        id: "transfer_2",
-        type: "transfer_in",
-        timestamp: new Date(Date.now() - 172800000).toISOString(),
-        status: "completed",
-        txHash: "ghi789...jkl012",
-        token: "USDC",
-        amount: 100,
-        sender: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-        fee: 0,
-        description: "Received 100 USDC from 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-      },
-    ]
-
-    transactions.push(...mockTransactions)
 
     // Sort by timestamp (newest first)
     return transactions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -301,11 +271,13 @@ export function TransactionHistory({ tokens, swaps }: TransactionHistoryProps) {
           {/* Transaction Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">{allTransactions.length}</p>
+              <p className="text-2xl font-bold">{allTransactions.length || 0}</p>
               <p className="text-sm text-muted-foreground">Total</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">{allTransactions.filter((tx) => tx.status === "completed").length}</p>
+              <p className="text-2xl font-bold">
+                {allTransactions.filter((tx) => tx.status === "completed").length || 0}
+              </p>
               <p className="text-sm text-muted-foreground">Completed</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">

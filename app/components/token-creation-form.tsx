@@ -1,31 +1,18 @@
 "use client"
 
-import React, { useState } from "react"
+import type React from "react"
+import { useState } from "react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useProgram } from "@/components/solana-provider"
 import * as anchor from "@project-serum/anchor"
-import {
-  Keypair,
-  SystemProgram,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-} from "@solana/web3.js"
-import {
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-} from "@solana/spl-token"
+import { Keypair, SystemProgram, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js"
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Coins } from "lucide-react"
+import { Coins, Loader2, CheckCircle, ExternalLink } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface TokenCreationFormProps {
@@ -33,10 +20,7 @@ interface TokenCreationFormProps {
   onCancel: () => void
 }
 
-export function TokenCreationForm({
-  onTokenCreated,
-  onCancel,
-}: TokenCreationFormProps) {
+export function TokenCreationForm({ onTokenCreated, onCancel }: TokenCreationFormProps) {
   const { publicKey } = useWallet()
   const { program } = useProgram()
   const [formData, setFormData] = useState({
@@ -54,8 +38,7 @@ export function TokenCreationForm({
     const newErrors: Record<string, string> = {}
     if (!formData.name.trim()) newErrors.name = "Token name is required"
     if (!formData.symbol.trim()) newErrors.symbol = "Token symbol is required"
-    if (formData.symbol.length > 10)
-      newErrors.symbol = "Symbol must be 10 characters or less"
+    if (formData.symbol.length > 10) newErrors.symbol = "Symbol must be 10 characters or less"
     if (!formData.initialSupply || Number.parseFloat(formData.initialSupply) <= 0) {
       newErrors.initialSupply = "Initial supply must be greater than 0"
     }
@@ -78,10 +61,7 @@ export function TokenCreationForm({
       const balance = await connection.getBalance(publicKey)
       if (balance < 0.1 * LAMPORTS_PER_SOL) {
         console.log("Requesting airdrop of 2 SOL on Devnet...")
-        const sig = await connection.requestAirdrop(
-          publicKey,
-          2 * LAMPORTS_PER_SOL
-        )
+        const sig = await connection.requestAirdrop(publicKey, 2 * LAMPORTS_PER_SOL)
         await connection.confirmTransaction(sig, "confirmed")
         console.log("Airdrop complete!")
       }
@@ -92,30 +72,26 @@ export function TokenCreationForm({
 
       // 2. Derive PDA for token_account
       const constantSeed = Buffer.from([
-        6, 221, 246, 225, 215, 101, 161, 147,
-        217, 203, 225, 70, 206, 235, 121, 172,
-        28, 180, 133, 237, 95, 91, 55, 145,
+        6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133, 237, 95, 91, 55, 145,
         58, 140, 245, 133, 126, 255, 0, 169,
       ])
 
       const programBytes = new Uint8Array([
-        140, 151, 37, 143, 78, 36, 137, 241,
-        187, 61, 16, 41, 20, 142, 13, 131,
-        11, 90, 19, 153, 218, 255, 16, 132,
-        4, 142, 123, 216, 219, 233, 248, 89,
+        140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4,
+        142, 123, 216, 219, 233, 248, 89,
       ])
       const pdaProgramId = new PublicKey(programBytes)
 
       const [tokenAccountPda] = PublicKey.findProgramAddressSync(
         [publicKey.toBuffer(), constantSeed, mint.toBuffer()],
-        pdaProgramId
+        pdaProgramId,
       )
 
       // 3. Call program with rpc()
       const sig = await program.methods
         .createToken(
           Number(formData.decimals), // u8
-          new anchor.BN(formData.initialSupply) // u64
+          new anchor.BN(formData.initialSupply), // u64
         )
         .accounts({
           mint,
@@ -159,107 +135,148 @@ export function TokenCreationForm({
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Coins className="h-5 w-5 text-primary" />
+    <div className="animate-slide-up">
+      <Card className="card-fintech w-full max-w-2xl mx-auto">
+        <CardHeader className="pb-6">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 text-primary-foreground shadow-lg">
+              <Coins className="h-6 w-6" />
+            </div>
+            <div>
+              <CardTitle className="font-serif text-2xl">Create New Token</CardTitle>
+              <CardDescription className="text-base">Deploy a new SPL token on Solana blockchain</CardDescription>
+            </div>
           </div>
-          <div>
-            <CardTitle className="font-serif">Create New Token</CardTitle>
-            <CardDescription>Deploy a new SPL token on Solana</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label>Name</Label>
-            <Input
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              required
-            />
-            {errors.name && (
-              <p className="text-sm text-red-500">{errors.name}</p>
-            )}
-          </div>
-          <div>
-            <Label>Symbol</Label>
-            <Input
-              value={formData.symbol}
-              onChange={(e) => handleInputChange("symbol", e.target.value)}
-              required
-            />
-            {errors.symbol && (
-              <p className="text-sm text-red-500">{errors.symbol}</p>
-            )}
-          </div>
-          <div>
-            <Label>Description</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) =>
-                handleInputChange("description", e.target.value)
-              }
-            />
-          </div>
-          <div>
-            <Label>Decimals</Label>
-            <Input
-              type="number"
-              value={formData.decimals}
-              onChange={(e) => handleInputChange("decimals", e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <Label>Initial Supply</Label>
-            <Input
-              type="number"
-              value={formData.initialSupply}
-              onChange={(e) =>
-                handleInputChange("initialSupply", e.target.value)
-              }
-              required
-            />
-            {errors.initialSupply && (
-              <p className="text-sm text-red-500">{errors.initialSupply}</p>
-            )}
-          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Token Name</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  placeholder="e.g., My Awesome Token"
+                  className="h-12 transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  required
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{errors.name}</p>
+                )}
+              </div>
 
-          {errors.form && (
-            <Alert variant="destructive">
-              <AlertDescription>{errors.form}</AlertDescription>
-            </Alert>
-          )}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Symbol</Label>
+                <Input
+                  value={formData.symbol}
+                  onChange={(e) => handleInputChange("symbol", e.target.value.toUpperCase())}
+                  placeholder="e.g., MAT"
+                  className="h-12 transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  maxLength={10}
+                  required
+                />
+                {errors.symbol && (
+                  <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{errors.symbol}</p>
+                )}
+              </div>
+            </div>
 
-          {signature && (
-            <Alert>
-              <AlertDescription>
-                ✅ Token created! Transaction:{" "}
-                <a
-                  href={`https://explorer.solana.com/tx/${signature}?cluster=devnet`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline text-blue-500"
-                >
-                  View on Explorer
-                </a>
-              </AlertDescription>
-            </Alert>
-          )}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Description</Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => handleInputChange("description", e.target.value)}
+                placeholder="Describe your token's purpose and utility..."
+                className="min-h-[100px] transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+              />
+            </div>
 
-          <div className="flex gap-2 pt-2">
-            <Button type="submit" disabled={isCreating}>
-              {isCreating ? "Creating..." : "Create Token"}
-            </Button>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Decimals</Label>
+                <Input
+                  type="number"
+                  value={formData.decimals}
+                  onChange={(e) => handleInputChange("decimals", e.target.value)}
+                  min="0"
+                  max="18"
+                  className="h-12 transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Initial Supply</Label>
+                <Input
+                  type="number"
+                  value={formData.initialSupply}
+                  onChange={(e) => handleInputChange("initialSupply", e.target.value)}
+                  placeholder="1000000"
+                  min="1"
+                  className="h-12 transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  required
+                />
+                {errors.initialSupply && (
+                  <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
+                    {errors.initialSupply}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {errors.form && (
+              <Alert variant="destructive" className="animate-fade-in border-destructive/50 bg-destructive/5">
+                <AlertDescription className="text-sm">{errors.form}</AlertDescription>
+              </Alert>
+            )}
+
+            {signature && (
+              <Alert className="animate-fade-in border-green-500/50 bg-green-500/5">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <AlertDescription className="text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-green-700 dark:text-green-300 font-medium">Token created successfully!</span>
+                    <a
+                      href={`https://explorer.solana.com/tx/${signature}?cluster=devnet`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-green-600 hover:text-green-700 transition-colors duration-200"
+                    >
+                      View Transaction
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex gap-3 pt-4">
+              <Button type="submit" disabled={isCreating} className="btn-fintech flex-1 h-12 text-base font-medium">
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating Token...
+                  </>
+                ) : (
+                  <>
+                    <Coins className="h-4 w-4 mr-2" />
+                    Create Token
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                className="px-8 h-12 text-base font-medium hover:bg-muted/50 transition-all duration-200 bg-transparent"
+                disabled={isCreating}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
