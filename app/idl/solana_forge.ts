@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/solana_forge.json`.
  */
 export type SolanaForge = {
-  "address": "7hC82veS135Xs4QN9MJW35BvjisnpKfoEs7aEYC23MHp",
+  "address": "DqgCoHx1ncV6PzVYVg7bRxj4KQ5XrxhpPTT5qqe2FR99",
   "metadata": {
     "name": "solanaForge",
     "version": "0.1.0",
@@ -15,9 +15,6 @@ export type SolanaForge = {
   "instructions": [
     {
       "name": "createToken",
-      "docs": [
-        "Creates a new SPL Token."
-      ],
       "discriminator": [
         84,
         52,
@@ -31,19 +28,27 @@ export type SolanaForge = {
       "accounts": [
         {
           "name": "mint",
-          "docs": [
-            "The new token mint account."
-          ],
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              }
+            ]
+          }
         },
         {
           "name": "tokenAccount",
-          "docs": [
-            "The user's token account for the new mint.",
-            "FIX: Use 'init_if_needed' for Associated Token Accounts.",
-            "This tells Anchor to create the account only if it doesn't exist."
-          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -134,31 +139,24 @@ export type SolanaForge = {
         },
         {
           "name": "payer",
-          "docs": [
-            "The user who is creating the token and paying for the accounts."
-          ],
           "writable": true,
           "signer": true
         },
         {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
           "name": "tokenProgram",
-          "docs": [
-            "The Solana Token Program (now an Interface)."
-          ]
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
           "name": "associatedTokenProgram",
-          "docs": [
-            "The Associated Token Account program."
-          ],
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "systemProgram",
-          "docs": [
-            "The Solana System Program."
-          ],
-          "address": "11111111111111111111111111111111"
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         }
       ],
       "args": [
@@ -174,9 +172,6 @@ export type SolanaForge = {
     },
     {
       "name": "initializeUser",
-      "docs": [
-        "Initializes a new user account."
-      ],
       "discriminator": [
         111,
         17,
@@ -224,9 +219,6 @@ export type SolanaForge = {
   "types": [
     {
       "name": "userAccount",
-      "docs": [
-        "Defines the structure of the UserAccount."
-      ],
       "type": {
         "kind": "struct",
         "fields": [

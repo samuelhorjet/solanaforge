@@ -1,76 +1,50 @@
 {
-  "accounts": [
-    {
-      "discriminator": [
-        211,
-        33,
-        136,
-        16,
-        186,
-        110,
-        242,
-        127
-      ],
-      "name": "UserAccount"
-    }
-  ],
   "address": "DqgCoHx1ncV6PzVYVg7bRxj4KQ5XrxhpPTT5qqe2FR99",
+  "metadata": {
+    "name": "solana_forge",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
   "instructions": [
     {
+      "name": "create_token",
+      "discriminator": [
+        84,
+        52,
+        204,
+        228,
+        24,
+        140,
+        234,
+        75
+      ],
       "accounts": [
         {
-          "docs": [
-            "The new token mint account."
-          ],
           "name": "mint",
-          "signer": true,
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              }
+            ]
+          }
         },
         {
-          "docs": [
-            "The user's token account for the new mint.",
-            "FIX: Use 'init_if_needed' for Associated Token Accounts.",
-            "This tells Anchor to create the account only if it doesn't exist."
-          ],
           "name": "token_account",
+          "writable": true,
           "pda": {
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            },
             "seeds": [
               {
                 "kind": "account",
@@ -117,37 +91,66 @@
                 "kind": "account",
                 "path": "mint"
               }
-            ]
-          },
-          "writable": true
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
-          "docs": [
-            "The user who is creating the token and paying for the accounts."
-          ],
           "name": "payer",
-          "signer": true,
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
-          "docs": [
-            "The Solana Token Program (now an Interface)."
-          ],
-          "name": "token_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-          "docs": [
-            "The Associated Token Account program."
-          ],
-          "name": "associated_token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "address": "11111111111111111111111111111111",
-          "docs": [
-            "The Solana System Program."
-          ],
-          "name": "system_program"
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         }
       ],
       "args": [
@@ -159,40 +162,10 @@
           "name": "initial_supply",
           "type": "u64"
         }
-      ],
-      "discriminator": [
-        84,
-        52,
-        204,
-        228,
-        24,
-        140,
-        234,
-        75
-      ],
-      "docs": [
-        "Creates a new SPL Token."
-      ],
-      "name": "create_token"
+      ]
     },
     {
-      "accounts": [
-        {
-          "name": "user_account",
-          "signer": true,
-          "writable": true
-        },
-        {
-          "name": "user",
-          "signer": true,
-          "writable": true
-        },
-        {
-          "address": "11111111111111111111111111111111",
-          "name": "system_program"
-        }
-      ],
-      "args": [],
+      "name": "initialize_user",
       "discriminator": [
         111,
         17,
@@ -203,32 +176,51 @@
         38,
         254
       ],
-      "docs": [
-        "Initializes a new user account."
+      "accounts": [
+        {
+          "name": "user_account",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
       ],
-      "name": "initialize_user"
+      "args": []
     }
   ],
-  "metadata": {
-    "description": "Created with Anchor",
-    "name": "solana_forge",
-    "spec": "0.1.0",
-    "version": "0.1.0"
-  },
+  "accounts": [
+    {
+      "name": "UserAccount",
+      "discriminator": [
+        211,
+        33,
+        136,
+        16,
+        186,
+        110,
+        242,
+        127
+      ]
+    }
+  ],
   "types": [
     {
-      "docs": [
-        "Defines the structure of the UserAccount."
-      ],
       "name": "UserAccount",
       "type": {
+        "kind": "struct",
         "fields": [
           {
             "name": "authority",
             "type": "pubkey"
           }
-        ],
-        "kind": "struct"
+        ]
       }
     }
   ]
