@@ -1,65 +1,121 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useWallet } from "@solana/wallet-adapter-react"
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
+import { Badge } from "@/components/ui/badge"
+import { Coins, TrendingUp, Zap, Shield, ArrowRight, Sparkles } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+
+export default function HomePage() {
+  const { publicKey } = useWallet()
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+
+  // redirect if wallet is already connected
+  useEffect(() => {
+    if (publicKey) {
+      // short delay so fade-out runs before redirect
+      const timeout = setTimeout(() => {
+        router.push("/dashboard")
+      }, 600)
+      return () => clearTimeout(timeout)
+    } else {
+      setLoading(false)
+    }
+  }, [publicKey, router])
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <AnimatePresence mode="wait">
+      {loading ? (
+        <motion.div
+          key="loading"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center justify-center min-h-screen bg-background"
+        >
+          <div className="flex flex-col items-center space-y-4">
+            <motion.div
+              className="rounded-full bg-gradient-to-br from-primary to-blue-600 h-20 w-20 flex items-center justify-center shadow-lg"
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+              <Coins className="h-10 w-10 text-white" />
+            </motion.div>
+            <p className="text-sm text-muted-foreground">Loading SolanaForge...</p>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          key="landing"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.6 }}
+          className="min-h-screen bg-background relative overflow-hidden"
+        >
+          {/* Background gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 pointer-events-none" />
+
+          <header className="border-b bg-background backdrop-blur-sm sticky top-0 z-50">
+            <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 text-primary-foreground shadow-lg">
+                  <Coins className="h-7 w-7" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold font-serif bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                    SolanaForge
+                  </h1>
+                  <p className="text-sm text-muted-foreground">Professional Token Management</p>
+                </div>
+              </div>
+              <Badge
+                variant="secondary"
+                className="bg-gradient-to-r from-primary/10 to-blue-500/10 text-primary border-primary/20"
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                Devnet
+              </Badge>
+            </div>
+          </header>
+
+          <main className="container mx-auto px-4 py-12">
+            <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-12">
+              <div className="text-center space-y-6 max-w-4xl animate-slide-up">
+                <h2 className="text-5xl md:text-6xl font-bold font-serif bg-gradient-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent leading-tight">
+                  Welcome to SolanaForge
+                </h2>
+                <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+                  The most advanced Solana DApp for professional token creation, portfolio management, and decentralized
+                  trading
+                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Shield className="h-4 w-4 text-green-500" />
+                  <span>Audited Smart Contracts</span>
+                  <span className="mx-2">•</span>
+                  <Zap className="h-4 w-4 text-yellow-500" />
+                  <span>Lightning Fast</span>
+                  <span className="mx-2">•</span>
+                  <TrendingUp className="h-4 w-4 text-blue-500" />
+                  <span>Professional Grade</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center gap-6 animate-fade-in">
+                <WalletMultiButton className="!bg-gradient-to-r !from-primary !to-blue-600 !text-white !font-medium !px-8 !py-4 !rounded-xl !text-lg !transition-all !duration-300 hover:!scale-105 hover:!shadow-lg hover:!shadow-primary/25" />
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <ArrowRight className="h-4 w-4" />
+                  Connect your wallet to get started
+                </p>
+              </div>
+            </div>
+          </main>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 }

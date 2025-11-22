@@ -1,0 +1,54 @@
+// FILE: app/dashboard/page.tsx
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useRouter } from "next/navigation";
+import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { DashboardContent } from "@/components/dashboard-content";
+import { InitializeGate } from "@/components/InitializeGate";
+import { NetworkGate } from "@/components/NetworkGate"; // <-- IMPORT THE NEW GATE
+
+export default function DashboardPage() {
+  const { publicKey } = useWallet();
+  const router = useRouter();
+  const [activeSection, setActiveSection] = useState("dashboard");
+
+  useEffect(() => {
+    if (!publicKey) {
+      router.replace("/");
+    }
+  }, [publicKey, router]);
+
+  if (!publicKey) {
+    return null;
+  }
+
+  return (
+    // The order of gates is important: Network check first, then Initialization check.
+    <NetworkGate>
+      <InitializeGate>
+        <div className="min-h-screen bg-background flex relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-primary/5 pointer-events-none" />
+
+          <DashboardSidebar
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+            walletAddress={publicKey.toBase58()}
+          />
+
+          <div className="flex-1 flex flex-col min-h-screen md:ml-0 relative z-10">
+            <main className="flex-1 p-6 md:p-8">
+              <DashboardContent
+                activeSection={activeSection}
+                walletAddress={publicKey.toBase58()}
+                onSectionChange={setActiveSection}
+              />
+            </main>
+          </div>
+        </div>
+      </InitializeGate>
+    </NetworkGate>
+  );
+}
