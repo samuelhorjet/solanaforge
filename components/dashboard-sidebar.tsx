@@ -32,16 +32,16 @@ export function DashboardSidebar({ activeSection, onSectionChange, walletAddress
     <div className="flex flex-col h-full">
       <div className="p-6 border-b border-border/50">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 text-primary-foreground shadow-lg">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-primary to-blue-600 text-primary-foreground shadow-lg">
             <Coins className="h-7 w-7" />
           </div>
           <div>
-            <h1 className="text-xl font-bold font-serif bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+            <h1 className="text-xl font-bold font-serif bg-linear-to-r from-foreground to-foreground/70 bg-clip-text">
               SolanaForge
             </h1>
             <Badge
               variant="secondary"
-              className="bg-gradient-to-r from-primary/10 to-blue-500/10 text-primary text-xs border-primary/20 mt-1"
+              className="bg-linear-to-r from-primary/10 to-blue-500/10 text-primary text-xs border-primary/20 mt-1"
             >
               <Sparkles className="h-3 w-3 mr-1" />
               Devnet
@@ -53,7 +53,7 @@ export function DashboardSidebar({ activeSection, onSectionChange, walletAddress
       <div className="p-6 border-b border-border/50">
         <div className="space-y-3">
           <p className="text-sm font-medium text-muted-foreground">Connected Wallet</p>
-          <div className="p-4 bg-gradient-to-r from-muted to-muted/50 rounded-xl border border-border/50">
+          <div className="p-4 bg-linear-to-r from-muted to-muted/50 rounded-xl border border-border/50">
             <code className="text-xs font-mono truncate block text-foreground/80">{walletAddress}</code>
             <div className="flex items-center gap-2 mt-2">
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
@@ -72,7 +72,7 @@ export function DashboardSidebar({ activeSection, onSectionChange, walletAddress
               className={cn(
                 "w-full justify-start gap-3 h-12 text-left transition-all duration-300 group",
                 activeSection === item.id
-                  ? "bg-gradient-to-r from-primary to-blue-600 text-primary-foreground shadow-lg hover:shadow-xl"
+                  ? "bg-linear-to-r from-primary to-blue-600 text-primary-foreground shadow-lg hover:shadow-xl"
                   : "hover:bg-primary/5 hover:border-primary/20 hover:scale-[1.02]",
               )}
               onClick={() => {

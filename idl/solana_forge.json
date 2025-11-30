@@ -150,6 +150,10 @@
         {
           "name": "revoke_update_authority",
           "type": "bool"
+        },
+        {
+          "name": "revoke_mint_authority",
+          "type": "bool"
         }
       ]
     },

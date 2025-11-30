@@ -156,6 +156,10 @@ export type SolanaForge = {
         {
           "name": "revokeUpdateAuthority",
           "type": "bool"
+        },
+        {
+          "name": "revokeMintAuthority",
+          "type": "bool"
         }
       ]
     },

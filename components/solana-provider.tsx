@@ -143,7 +143,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     try {
       const txSignature = await program.methods
         .initializeUser()
-        .accounts({
+        .accountsPartial({
           userAccount: userAccountPda,
           payer: wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,

@@ -1,0 +1,402 @@
+// FILE: components/token-list.tsx
+
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Coins,
+  Search,
+  MoreHorizontal,
+  Copy,
+  ExternalLink,
+  Send,
+  Settings,
+  Plus,
+  Loader2,
+  AlertTriangle,
+  ImageOff,
+} from "lucide-react";
+import { Token } from "@/types/token";
+import { useTokenActions } from "@/hooks/useTokenActions";
+import Image from "next/image";
+
+interface TokenListProps {
+  tokens: Token[];
+  isLoading?: boolean; // Added loading prop
+  onTokenAction: (action: string, token: Token) => void;
+}
+
+export function TokenList({
+  tokens,
+  isLoading,
+  onTokenAction,
+}: TokenListProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const { transferToken, mintMoreToken, isProcessing } = useTokenActions();
+
+  // Dialog States
+  const [activeToken, setActiveToken] = useState<Token | null>(null);
+  const [actionType, setActionType] = useState<"transfer" | "mint" | null>(
+    null
+  );
+  const [actionAmount, setActionAmount] = useState("");
+  const [recipient, setRecipient] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const filteredTokens = tokens.filter(
+    (token) =>
+      token.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      token.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleActionSubmit = async () => {
+    if (!activeToken || !actionAmount) return;
+    setMsg("");
+
+    try {
+      if (actionType === "transfer") {
+        if (!recipient) return;
+        await transferToken(
+          activeToken.mintAddress,
+          recipient,
+          parseFloat(actionAmount),
+          activeToken.decimals,
+          activeToken.programId
+        );
+        setMsg("Transfer Successful!");
+      } else if (actionType === "mint") {
+        await mintMoreToken(
+          activeToken.mintAddress,
+          parseFloat(actionAmount),
+          activeToken.decimals,
+          activeToken.programId
+        );
+        setMsg("Minting Successful! Supply updated.");
+      }
+      // Small delay to read message then close
+      setTimeout(() => {
+        setActiveToken(null);
+        setActionType(null);
+        setMsg("");
+        setRecipient("");
+        setActionAmount("");
+      }, 2000);
+    } catch (e: any) {
+      setMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const openAction = (token: Token, type: "transfer" | "mint") => {
+    setActiveToken(token);
+    setActionType(type);
+    setMsg("");
+  };
+
+  // ... (Format helpers same as before) ...
+  const formatSupply = (supply: number) =>
+    new Intl.NumberFormat().format(supply);
+  const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (tokens.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-12">
+          <div className="text-center space-y-3">
+            <Coins className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+            <div>
+              <p className="text-lg font-medium">No tokens created yet</p>
+              <p className="text-sm text-muted-foreground">
+                Create your first SPL token to get started
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="font-serif">Your Created Tokens</CardTitle>
+              <CardDescription>
+                Tokens where you are the authority
+              </CardDescription>
+            </div>
+            <Badge variant="secondary">
+              {tokens.length} token{tokens.length !== 1 ? "s" : ""}
+            </Badge>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tokens..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Token</TableHead>
+                  <TableHead>Supply</TableHead>
+                  <TableHead>Your Balance</TableHead>
+                  <TableHead>Mint Address</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTokens.map((token) => (
+                  <TableRow key={token.id}>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-3">
+                          {/* IMAGE FIX */}
+                          <div className="relative h-10 w-10 rounded-full overflow-hidden bg-muted flex items-center justify-center border">
+                            {token.image ? (
+                              <Image
+                                src={token.image}
+                                alt={token.symbol}
+                                layout="fill"
+                                objectFit="cover"
+                              />
+                            ) : (
+                              <Coins className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium">{token.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {token.symbol}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">
+                          {formatSupply(token.supply)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] h-4 px-1"
+                        >
+                          {token.isMintable ? "Mintable" : "Fixed"}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {/* Verify balance vs Supply */}
+                      <span
+                        className={
+                          token.balance > 0
+                            ? "text-green-600 font-medium"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {formatSupply(token.balance)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate max-w-[100px]">
+                          {token.mintAddress}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(token.mintAddress)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => onTokenAction("view", token)}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" /> View on
+                            Explorer
+                          </DropdownMenuItem>
+
+                          <DropdownMenuSeparator />
+
+                          {/* TRANSFER (Enabled if balance > 0) */}
+                          <DropdownMenuItem
+                            onClick={() => openAction(token, "transfer")}
+                            disabled={token.balance <= 0}
+                          >
+                            <Send className="h-4 w-4 mr-2" /> Transfer
+                          </DropdownMenuItem>
+
+                          {/* MINT (Enabled if isMintable) */}
+                          <DropdownMenuItem
+                            onClick={() => openAction(token, "mint")}
+                            disabled={!token.isMintable}
+                          >
+                            <Plus className="h-4 w-4 mr-2" /> Mint More
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ACTION MODAL */}
+      <Dialog
+        open={!!activeToken}
+        onOpenChange={(open) => !open && setActiveToken(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {actionType === "transfer"
+                ? "Transfer Tokens"
+                : "Mint More Tokens"}
+            </DialogTitle>
+            <DialogDescription>
+              {actionType === "transfer"
+                ? `Send ${activeToken?.symbol} to another wallet.`
+                : `Increase supply of ${activeToken?.symbol}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {activeToken && (
+              <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                <div className="relative h-8 w-8 rounded-full overflow-hidden bg-muted">
+                  {activeToken.image ? (
+                    <Image src={activeToken.image} alt="icon" layout="fill" />
+                  ) : (
+                    <Coins className="p-1" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold">{activeToken.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Current Bal: {activeToken.balance}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {actionType === "transfer" && (
+              <div className="space-y-2">
+                <Label>Recipient Address</Label>
+                <Input
+                  placeholder="Solana Address"
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>
+                {actionType === "transfer"
+                  ? "Amount to Send"
+                  : "Amount to Mint"}
+              </Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={actionAmount}
+                onChange={(e) => setActionAmount(e.target.value)}
+              />
+            </div>
+
+            {msg && (
+              <p
+                className={
+                  msg.includes("Error")
+                    ? "text-red-500 text-sm"
+                    : "text-green-500 text-sm"
+                }
+              >
+                {msg}
+              </p>
+            )}
+
+            <Button
+              className="w-full"
+              onClick={handleActionSubmit}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <Loader2 className="animate-spin mr-2" />
+              ) : actionType === "transfer" ? (
+                <Send className="mr-2 h-4 w-4" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Confirm {actionType === "transfer" ? "Transfer" : "Mint"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

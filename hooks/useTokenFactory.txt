@@ -1,7 +1,7 @@
 // FILE: hooks/useTokenFactory.ts
 
 import { useState, useRef, useEffect } from "react";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react"; // Added useConnection
 import { useProgram } from "@/components/solana-provider";
 import * as anchor from "@coral-xyz/anchor";
 import {
@@ -21,20 +21,11 @@ import { MPL_TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-me
 import { Token } from "@/types/token";
 
 export type TokenStandard = "token" | "token-2022";
-export type AddressMethod = "random" | "custom";
-
-// --- HELPER: Ensure URL has protocol ---
-const ensureProtocol = (url: string) => {
-  if (!url) return "";
-  if (!/^https?:\/\//i.test(url)) {
-    return `https://${url}`;
-  }
-  return url;
-};
+export type AddressMethod = "random" | "custom"; // New type
 
 export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   const { publicKey } = useWallet();
-  const { connection } = useConnection();
+  const { connection } = useConnection(); // Needed for account verification
   const { program } = useProgram();
 
   // --- WIZARD STATE ---
@@ -44,19 +35,21 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   // --- TOKEN CONFIG STATE ---
   const [tokenStandard, setTokenStandard] =
     useState<TokenStandard>("token-2022");
+
+  // Custom Address State
   const [uploadedKeypair, setUploadedKeypair] = useState<Keypair | null>(null);
   const [keypairFileError, setKeypairFileError] = useState<string | null>(null);
 
-  // Form Data
+  // Form Data (Expanded)
   const [formData, setFormData] = useState({
     name: "",
     symbol: "",
     decimals: "9",
     initialSupply: "",
-    description: "",
-    website: "",
-    twitter: "",
-    telegram: "",
+    description: "", // New
+    website: "", // New
+    twitter: "", // New
+    telegram: "", // New
     transferFee: "0",
     interestRate: "0",
     nonTransferable: false,
@@ -90,26 +83,33 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
 
   // --- HELPERS ---
 
+  // 1. JSON Keypair Upload Handler
   const handleKeypairUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    // ... (Keep existing logic)
     const file = e.target.files?.[0];
     if (!file) return;
+
     setKeypairFileError(null);
     setUploadedKeypair(null);
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
         const content = event.target?.result as string;
         const parsed = JSON.parse(content);
+
+        // Basic validation: must be array of numbers (standard Solana format)
         if (!Array.isArray(parsed) || parsed.length !== 64) {
           setKeypairFileError(
             "Invalid JSON format. Must be a [64 byte] array."
           );
           return;
         }
+
         const kp = Keypair.fromSecretKey(new Uint8Array(parsed));
+
+        // SECURITY: Check if account already exists/used
         const accountInfo = await connection.getAccountInfo(kp.publicKey);
         if (accountInfo) {
           setKeypairFileError(
@@ -119,7 +119,9 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
           );
           return;
         }
+
         setUploadedKeypair(kp);
+        // If they were using vanity, clear it to avoid confusion
         setSelectedVanityKey(null);
         setVanityResults([]);
       } catch (err) {
@@ -129,14 +131,15 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     reader.readAsText(file);
   };
 
+  // 2. Vanity Logic (Same as before)
   const stopGrinding = () => {
     grindingRef.current = false;
     setIsGrinding(false);
   };
 
   const grindVanityAddress = (continueSearch = false) => {
-    // ... (Keep existing logic)
     if (!vanityPrefix) return;
+    // ... (Keep existing vanity logic logic here) ...
     const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
     if (!base58Regex.test(vanityPrefix)) {
       setErrors({ vanity: "Invalid characters. No 0, O, I, l." });
@@ -177,16 +180,9 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     findMatch();
   };
 
+  // 3. Form Handlers
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear errors when user types
-    if (errors[field]) {
-      setErrors((prev) => {
-        const newErrs = { ...prev };
-        delete newErrs[field];
-        return newErrs;
-      });
-    }
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,7 +205,6 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     return (await res.json()).url;
   };
 
-  // --- UPDATED VALIDATION LOGIC ---
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.name.trim()) errs.name = "Name required.";
@@ -220,35 +215,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     if (Number(formData.initialSupply) <= 0)
       errs.initialSupply = "Invalid supply.";
 
-    // Social Validation
-    if (formData.twitter) {
-      // Allows twitter.com or x.com
-      const twitterRegex =
-        /^(https?:\/\/)?(www\.)?(twitter|x)\.com\/[a-zA-Z0-9_]{1,15}\/?$/;
-      if (!twitterRegex.test(formData.twitter)) {
-        errs.twitter = "Invalid Twitter URL (e.g. https://x.com/username)";
-      }
-    }
-
-    if (formData.telegram) {
-      // Allows t.me or telegram.me
-      const telegramRegex =
-        /^(https?:\/\/)?(www\.)?(t\.me|telegram\.me)\/[a-zA-Z0-9_]{5,32}\/?$/;
-      if (!telegramRegex.test(formData.telegram)) {
-        errs.telegram = "Invalid Telegram URL (e.g. https://t.me/username)";
-      }
-    }
-
-    if (formData.website) {
-      // Basic URL check
-      const urlRegex =
-        /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-      if (!urlRegex.test(formData.website)) {
-        errs.website = "Invalid Website URL";
-      }
-    }
-
-    // Step 1 Check
+    // Validate Step 1 Check
     if (addressMethod === "custom" && !uploadedKeypair && !selectedVanityKey) {
       errs.address = "You selected Custom Address but haven't provided one.";
     }
@@ -257,6 +224,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     return Object.keys(errs).length === 0;
   };
 
+  // --- CREATE TOKEN ---
   const createToken = async () => {
     if (!validate() || !publicKey || !program) return;
 
@@ -270,30 +238,25 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
 
       setStatusMessage("Uploading Metadata...");
 
-      // --- FIX: Ensure Protocols on Links ---
-      const cleanWebsite = ensureProtocol(formData.website);
-      const cleanTwitter = ensureProtocol(formData.twitter);
-      const cleanTelegram = ensureProtocol(formData.telegram);
-
       // Construct rich metadata
       const metadataPayload = {
         name: formData.name,
         symbol: formData.symbol,
-        description: formData.description,
+        description: formData.description, // Optional Description
         image: imgUrl,
-        external_url: cleanWebsite, // <--- Fixed Link
+        external_url: formData.website, // Optional Website
         attributes: [] as any[],
       };
 
-      if (cleanTwitter)
+      if (formData.twitter)
         metadataPayload.attributes.push({
           trait_type: "Twitter",
-          value: cleanTwitter, // <--- Fixed Link
+          value: formData.twitter,
         });
-      if (cleanTelegram)
+      if (formData.telegram)
         metadataPayload.attributes.push({
           trait_type: "Telegram",
-          value: cleanTelegram, // <--- Fixed Link
+          value: formData.telegram,
         });
 
       const metaUrl = await uploadToIpfs(
@@ -305,8 +268,9 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
 
       setStatusMessage("Building Transaction...");
 
-      // ... (Keep existing mint keypair logic)
+      // DETERMINING THE MINT KEYPAIR
       let mintKeypair: Keypair;
+
       if (addressMethod === "custom") {
         if (uploadedKeypair) {
           mintKeypair = uploadedKeypair;
@@ -315,12 +279,12 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
             (k) => k.publicKey.toBase58() === selectedVanityKey
           );
           if (found) mintKeypair = found;
-          else mintKeypair = Keypair.generate();
+          else mintKeypair = Keypair.generate(); // Fallback (shouldn't happen due to validate)
         } else {
           mintKeypair = Keypair.generate();
         }
       } else {
-        mintKeypair = Keypair.generate();
+        mintKeypair = Keypair.generate(); // Random (Fast)
       }
 
       const decimals = Number(formData.decimals);
@@ -414,33 +378,37 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         isMintable: formData.isMintable,
         programId: progId.toBase58(),
         authority: publicKey.toBase58(),
-        description: formData.description,
-        website: cleanWebsite,
-        twitter: cleanTwitter,
-        telegram: cleanTelegram,
       });
     } catch (e: any) {
       console.error(e);
       setErrors({ form: e.message || "Transaction failed. Please try again." });
     } finally {
       setIsCreating(false);
+      // SECURITY: Clear the private key from memory immediately
       setUploadedKeypair(null);
     }
   };
 
   return {
+    // Wizard State
     step,
     setStep,
     addressMethod,
     setAddressMethod,
+
+    // Core Data
     formData,
     handleInputChange,
     tokenStandard,
     setTokenStandard,
+
+    // Custom Address - Upload
     handleKeypairUpload,
     uploadedKeypair,
     keypairFileError,
     setUploadedKeypair,
+
+    // Custom Address - Vanity
     vanityPrefix,
     setVanityPrefix,
     vanityResults,
@@ -450,9 +418,13 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     stats,
     selectedVanityKey,
     setSelectedVanityKey,
+
+    // Image
     tokenImage,
     tokenImagePreview,
     handleImageSelect,
+
+    // Status
     isCreating,
     statusMessage,
     errors,

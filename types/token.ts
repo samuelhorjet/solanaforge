@@ -1,14 +1,21 @@
 // FILE: types/token.ts
 
 export interface Token {
-  id: string;
+  id: string; 
+  mintAddress: string;
   name: string;
   symbol: string;
-  supply: number;
   decimals: number;
-  mintAddress: string;
-  createdAt: string;
+  supply: number; 
+  balance: number; 
+  image?: string; 
+  description?: string;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+  isMintable: boolean; 
+  programId: string; 
+  authority?: string; 
   status: "active" | "inactive";
-  balance: number;
-  description?: string; // Optional description
+  createdAt?: string; 
 }

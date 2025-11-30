@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Network, LogOut, ShieldCheck } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { ThemeToggle } from "./themme-toggle";
+import { ThemeToggle } from "./theme-toggle";
 
 interface SettingsPanelProps {
   walletAddress: string;
