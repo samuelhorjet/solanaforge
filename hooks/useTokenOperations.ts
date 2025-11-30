@@ -75,7 +75,7 @@ export function useTokenOperations() {
 
       const tx = await program.methods
         .proxyLockTokens(amountBN, unlockTimestamp, lockIdBN)
-        .accounts({
+        .accountsPartial({
           owner: publicKey,
           tokenMint: mint,
           lockRecord: lockRecord,
@@ -119,7 +119,7 @@ export function useTokenOperations() {
 
         const tx = await program.methods
             .proxyWithdrawTokens(lockIdBN)
-            .accounts({
+            .accountsPartial({
                 owner: publicKey,
                 lockRecord,
                 vault,
@@ -162,7 +162,7 @@ export function useTokenOperations() {
 
       const tx = await program.methods
         .proxyBurnFromWallet(amountBN)
-        .accounts({
+        .accountsPartial({
             burner: publicKey,
             tokenMint: mint,
             userTokenAccount: userTokenAccount,
@@ -194,7 +194,7 @@ export function useTokenOperations() {
 
         const tx = await program.methods
             .proxyBurnFromLock(amountBN, lockIdBN)
-            .accounts({
+            .accountsPartial({
                 owner: publicKey,
                 tokenMint: mint,
                 lockRecord: lockRecord,
