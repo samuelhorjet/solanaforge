@@ -19,6 +19,7 @@ import {
 } from "@solana/spl-token";
 import { MPL_TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
 import { Token } from "@/types/token";
+import { triggerMobileWalletRedirect } from "@/lib/wallet-utils"; 
 
 export type TokenStandard = "token" | "token-2022";
 export type AddressMethod = "random" | "custom";
@@ -34,6 +35,7 @@ const ensureProtocol = (url: string) => {
 
 export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   const { publicKey } = useWallet();
+  const wallet = useWallet();
   const { connection } = useConnection();
   const { program } = useProgram();
 
@@ -362,6 +364,8 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         : 0;
 
       setStatusMessage("Please sign transaction...");
+
+      triggerMobileWalletRedirect(wallet);
 
       const tx = await program.methods
         .createToken(

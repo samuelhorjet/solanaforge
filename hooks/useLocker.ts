@@ -1,6 +1,7 @@
 // FILE: hooks/useLocker.ts
 
 import { useState, useCallback } from "react";
+import { triggerMobileWalletRedirect } from "@/lib/wallet-utils";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import {
@@ -32,6 +33,7 @@ export interface LockRecord {
 
 export function useLocker() {
   const { connection } = useConnection();
+  const wallet = useWallet(); 
   const { publicKey } = useWallet();
   const { program } = useProgram();
 
@@ -207,6 +209,8 @@ export function useLocker() {
         false,
         tokenProgramId
       );
+
+      triggerMobileWalletRedirect(wallet);
 
       const tx = await program.methods
         .proxyLockTokens(amountBN, unlockTimestamp, lockIdBN)

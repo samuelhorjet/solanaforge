@@ -11,9 +11,11 @@ import {
     getMint,
     ASSOCIATED_TOKEN_PROGRAM_ID
 } from "@solana/spl-token";
+import { triggerMobileWalletRedirect } from "@/lib/wallet-utils";
 
 export function useTokenActions() {
     const { connection } = useConnection();
+    const wallet = useWallet();
     const { publicKey, sendTransaction } = useWallet();
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -90,6 +92,8 @@ export function useTokenActions() {
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = publicKey;
 
+            triggerMobileWalletRedirect(wallet);
+
             const signature = await sendTransaction(transaction, connection);
 
             // 6. Robust Confirmation
@@ -108,7 +112,7 @@ export function useTokenActions() {
         } finally {
             setIsProcessing(false);
         }
-    }, [connection, publicKey, sendTransaction]);
+    }, [connection, wallet, publicKey, sendTransaction]);
 
 
     // --- MINT MORE ---
@@ -177,6 +181,8 @@ export function useTokenActions() {
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = publicKey;
 
+            triggerMobileWalletRedirect(wallet);
+
             const signature = await sendTransaction(transaction, connection);
 
             await connection.confirmTransaction({
@@ -193,7 +199,7 @@ export function useTokenActions() {
         } finally {
             setIsProcessing(false);
         }
-    }, [connection, publicKey, sendTransaction]);
+    }, [connection,  wallet, publicKey, sendTransaction]);
 
     return { transferToken, mintMoreToken, isProcessing };
 }

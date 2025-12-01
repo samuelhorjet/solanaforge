@@ -6,6 +6,7 @@ import { useProgram } from "@/components/solana-provider";
 import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { BN } from "@coral-xyz/anchor";
+import { triggerMobileWalletRedirect } from "@/lib/wallet-utils";
 
 const DLOOM_LOCKER_PROGRAM_ID = new PublicKey("AVfmdPiqXfc15Pt8PPRXxTP5oMs4D1CdijARiz8mFMFD");
 
@@ -28,6 +29,7 @@ export interface BurnQueueItem {
 }
 
 export function useBurner() {
+  const wallet = useWallet();
   const { publicKey } = useWallet();
   const { program } = useProgram();
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +51,8 @@ export function useBurner() {
       const amountBN = new BN(amount * (10 ** decimals));
       
       const userTokenAccount = getAssociatedTokenAddressSync(mint, publicKey, false, tokenProgram);
+
+      triggerMobileWalletRedirect(wallet);
 
       const tx = await program.methods
         .proxyBurnFromWallet(amountBN)
@@ -76,6 +80,8 @@ export function useBurner() {
     try {
         for (const item of queue) {
             try {
+
+              triggerMobileWalletRedirect(wallet);
                 // Execute individual burns
                 const tx = await burnFromWallet(
                     item.mint,
@@ -125,6 +131,8 @@ export function useBurner() {
             DLOOM_LOCKER_PROGRAM_ID
         );
 
+        triggerMobileWalletRedirect(wallet);
+        
         const tx = await program.methods
             .proxyBurnFromLock(amountBN, lockIdBN)
             .accountsPartial({
