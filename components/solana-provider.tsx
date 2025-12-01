@@ -20,6 +20,7 @@ import {
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+import { WalletConnectWalletAdapter } from "@solana/wallet-adapter-walletconnect"; 
 import {
   clusterApiUrl,
   PublicKey,
@@ -197,9 +198,25 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
 export function SolanaProvider({ children }: { children: ReactNode }) {
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
-  const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    []
+   const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+      // 3. ADD WALLET CONNECT
+      new WalletConnectWalletAdapter({
+        network: network,
+        options: {
+          projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "YOUR_PROJECT_ID_HERE",
+          metadata: {
+            name: "SolanaForge",
+            description: "Professional Token Management DApp",
+            url: "https://solana-forge.netlify.app/", // Your domain
+            icons: ["https://solanaforge.app/icon.png"], // Your icon
+          },
+        },
+      }),
+    ],
+    [network]
   );
 
   return (

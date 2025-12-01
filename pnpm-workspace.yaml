@@ -1,4 +1,5 @@
 onlyBuiltDependencies:
+  - '@reown/appkit'
   - bigint-buffer
   - blake-hash
   - bufferutil

@@ -39,7 +39,7 @@ export default function HomePage() {
         >
           <div className="flex flex-col items-center space-y-4">
             <motion.div
-              className="rounded-full bg-gradient-to-br from-primary to-blue-600 h-20 w-20 flex items-center justify-center shadow-lg"
+              className="rounded-full bg-linear-to-brrom-primary to-blue-600 h-20 w-20 flex items-center justify-center shadow-lg"
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ repeat: Infinity, duration: 1.5 }}
             >
@@ -58,16 +58,16 @@ export default function HomePage() {
           className="min-h-screen bg-background relative overflow-hidden"
         >
           {/* Background gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-primary/10 pointer-events-none" />
 
           <header className="border-b bg-background backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto px-4 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 text-primary-foreground shadow-lg">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-primary to-blue-600 text-primary-foreground shadow-lg">
                   <Coins className="h-7 w-7" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold font-serif bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                  <h1 className="text-2xl font-bold font-serif bg-linear-to-r from-foreground to-foreground/70 bg-clip-text">
                     SolanaForge
                   </h1>
                   <p className="text-sm text-muted-foreground">Professional Token Management</p>
@@ -75,7 +75,7 @@ export default function HomePage() {
               </div>
               <Badge
                 variant="secondary"
-                className="bg-gradient-to-r from-primary/10 to-blue-500/10 text-primary border-primary/20"
+                className="bg-linear-to-r from-primary/10 to-blue-500/10 text-primary border-primary/20"
               >
                 <Sparkles className="h-3 w-3 mr-1" />
                 Devnet
@@ -86,7 +86,7 @@ export default function HomePage() {
           <main className="container mx-auto px-4 py-12">
             <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-12">
               <div className="text-center space-y-6 max-w-4xl animate-slide-up">
-                <h2 className="text-5xl md:text-6xl font-bold font-serif bg-gradient-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent leading-tight">
+                <h2 className="text-5xl md:text-6xl font-bold font-serif bg-linear-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent leading-tight">
                   Welcome to SolanaForge
                 </h2>
                 <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
@@ -106,7 +106,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-col items-center gap-6 animate-fade-in">
-                <WalletMultiButton className="!bg-gradient-to-r !from-primary !to-blue-600 !text-white !font-medium !px-8 !py-4 !rounded-xl !text-lg !transition-all !duration-300 hover:!scale-105 hover:!shadow-lg hover:!shadow-primary/25" />
+                <WalletMultiButton className="bg-linear-to-r! from-primary! to-blue-600! text-white! font-medium! px-8! py-4! rounded-xl! text-lg! transition-all! duration-300! hover:scale-105! hover:shadow-lg! hover:shadow-primary/25!" />
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                   <ArrowRight className="h-4 w-4" />
                   Connect your wallet to get started
