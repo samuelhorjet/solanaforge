@@ -1,12 +1,11 @@
 // FILE: hooks/useBurner.ts
 
 import { useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useProgram } from "@/components/solana-provider";
 import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { BN } from "@coral-xyz/anchor";
-import { triggerMobileWalletRedirect } from "@/lib/wallet-utils";
 
 const DLOOM_LOCKER_PROGRAM_ID = new PublicKey("AVfmdPiqXfc15Pt8PPRXxTP5oMs4D1CdijARiz8mFMFD");
 
@@ -29,8 +28,8 @@ export interface BurnQueueItem {
 }
 
 export function useBurner() {
-  const wallet = useWallet();
-  const { publicKey } = useWallet();
+  const { connection } = useConnection();
+  const { publicKey, sendTransaction } = useWallet();
   const { program } = useProgram();
   const [isLoading, setIsLoading] = useState(false);
   const [burnHistory, setBurnHistory] = useState<BurnHistoryItem[]>([]);
@@ -52,9 +51,8 @@ export function useBurner() {
       
       const userTokenAccount = getAssociatedTokenAddressSync(mint, publicKey, false, tokenProgram);
 
-      triggerMobileWalletRedirect(wallet);
-
-      const tx = await program.methods
+      // 1. Build Transaction Instruction
+      const transaction = await program.methods
         .proxyBurnFromWallet(amountBN)
         .accountsPartial({
             burner: publicKey,
@@ -63,9 +61,24 @@ export function useBurner() {
             lockerProgram: DLOOM_LOCKER_PROGRAM_ID,
             tokenProgram: tokenProgram
         })
-        .rpc();
+        .transaction();
+
+      // 2. Set Fee Payer & Blockhash
+      transaction.feePayer = publicKey;
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+
+      // 3. Send via Wallet Adapter (Handles Mobile Deep Linking)
+      const signature = await sendTransaction(transaction, connection);
+
+      // 4. Confirm
+      await connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight
+      }, "confirmed");
         
-      return tx;
+      return signature;
     } finally {
       setIsLoading(false);
     }
@@ -80,8 +93,6 @@ export function useBurner() {
     try {
         for (const item of queue) {
             try {
-
-              triggerMobileWalletRedirect(wallet);
                 // Execute individual burns
                 const tx = await burnFromWallet(
                     item.mint,
@@ -121,7 +132,6 @@ export function useBurner() {
         const amountBN = new BN(amount * (10 ** decimals));
         const mint = new PublicKey(mintAddress);
         
-        // Derive PDAs manually (matching hook logic)
         const [lockRecord] = PublicKey.findProgramAddressSync(
             [Buffer.from("lock_record"), publicKey.toBuffer(), mint.toBuffer(), lockIdBN.toArrayLike(Buffer, "le", 8)],
             DLOOM_LOCKER_PROGRAM_ID 
@@ -130,10 +140,8 @@ export function useBurner() {
             [Buffer.from("vault"), lockRecord.toBuffer()],
             DLOOM_LOCKER_PROGRAM_ID
         );
-
-        triggerMobileWalletRedirect(wallet);
         
-        const tx = await program.methods
+        const transaction = await program.methods
             .proxyBurnFromLock(amountBN, lockIdBN)
             .accountsPartial({
                 owner: publicKey,
@@ -143,9 +151,21 @@ export function useBurner() {
                 tokenProgram: new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"), // Or Legacy
                 lockerProgram: DLOOM_LOCKER_PROGRAM_ID
             })
-            .rpc();
+            .transaction();
 
-        return tx;
+        transaction.feePayer = publicKey;
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+
+        const signature = await sendTransaction(transaction, connection);
+
+        await connection.confirmTransaction({
+          signature,
+          blockhash,
+          lastValidBlockHeight
+        }, "confirmed");
+
+        return signature;
     } finally {
         setIsLoading(false);
     }

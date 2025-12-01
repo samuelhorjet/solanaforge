@@ -24,6 +24,7 @@ import {
   clusterApiUrl,
   PublicKey,
   LAMPORTS_PER_SOL,
+  SystemProgram,
 } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
@@ -51,20 +52,21 @@ export const useProgram = () => useContext(ProgramContext);
 const AnchorSetup = ({ children }: { children: ReactNode }) => {
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
-  const wallet = useWallet();
+  
+  // Destructure sendTransaction here
+  const { publicKey, sendTransaction, wallet: adapterWallet } = useWallet();
 
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
-  const [isNetworkCorrect, setIsNetworkCorrect] = useState<boolean | null>(
-    null
-  );
+  const [isNetworkCorrect, setIsNetworkCorrect] = useState<boolean | null>(null);
 
   const provider = useMemo(() => {
-    if (!wallet.publicKey) return null;
+    if (!publicKey || !adapterWallet) return null;
     const connection = new anchor.web3.Connection(endpoint);
-    return new anchor.AnchorProvider(connection, wallet as any, {
+    // We cast adapterWallet to any because Anchor types are slightly stricter than Adapter types
+    return new anchor.AnchorProvider(connection, adapterWallet.adapter as any, {
       preflightCommitment: "processed",
     });
-  }, [endpoint, wallet]);
+  }, [endpoint, publicKey, adapterWallet]);
 
   const program = useMemo(() => {
     if (provider) {
@@ -73,90 +75,109 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     return null;
   }, [provider]);
 
+  // 1. Check if User Account Exists
   useEffect(() => {
     const checkAccount = async () => {
-      if (!program || !wallet.publicKey) {
+      if (!program || !publicKey) {
         setIsInitialized(null);
         return;
       }
 
-      setIsInitialized(null);
+      // Don't reset to null here to avoid flickering, only set if we have a result
       try {
         const [userAccountPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("user"), wallet.publicKey.toBuffer()],
+          [Buffer.from("user"), publicKey.toBuffer()],
           program.programId
         );
-        const userAccount = await program.account.userAccount.fetch(
+        // Using fetchNullable is safer if the account might not exist
+        const userAccount = await program.account.userAccount.fetchNullable(
           userAccountPda
         );
 
-        if (userAccount && typeof userAccount.tokenCount !== "undefined") {
+        if (userAccount) {
           setIsInitialized(true);
         } else {
           setIsInitialized(false);
         }
       } catch (error) {
+        console.error("Error checking account:", error);
         setIsInitialized(false);
       }
     };
-    checkAccount();
-  }, [program, wallet.publicKey]);
 
-  // --- START OF THE FIX ---
-  // This hook now correctly determines the network status.
+    checkAccount();
+  }, [program, publicKey]);
+
+  // 2. Check Network Status
   useEffect(() => {
-    // If the provider is available, it means we are connected to the endpoint
-    // which is already configured for Devnet. We can safely assume the network is correct.
     if (provider && provider.connection) {
       setIsNetworkCorrect(true);
     } else {
-      // If there's no provider, we are in the initial loading/connecting state.
       setIsNetworkCorrect(null);
     }
   }, [provider]);
-  // --- END OF THE FIX ---
 
+  // 3. Initialize User Account (FIXED FOR MOBILE)
   const initializeUserAccount = useCallback(async () => {
-    if (!program || !wallet.publicKey || !provider) {
+    if (!program || !publicKey || !provider) {
       throw new Error("Wallet not connected or program not available.");
     }
 
-    const balance = await provider.connection.getBalance(wallet.publicKey);
+    // A. Check Balance & Airdrop if needed (Devnet only)
+    const balance = await provider.connection.getBalance(publicKey);
     if (balance < 0.5 * LAMPORTS_PER_SOL) {
-      const airdropSignature = await provider.connection.requestAirdrop(
-        wallet.publicKey,
-        1 * LAMPORTS_PER_SOL
-      );
-      const { blockhash, lastValidBlockHeight } =
-        await provider.connection.getLatestBlockhash();
-      await provider.connection.confirmTransaction(
-        { signature: airdropSignature, blockhash, lastValidBlockHeight },
-        "confirmed"
-      );
+      try {
+        const airdropSignature = await provider.connection.requestAirdrop(
+          publicKey,
+          1 * LAMPORTS_PER_SOL
+        );
+        const { blockhash, lastValidBlockHeight } =
+          await provider.connection.getLatestBlockhash();
+        await provider.connection.confirmTransaction(
+          { signature: airdropSignature, blockhash, lastValidBlockHeight },
+          "confirmed"
+        );
+      } catch (e) {
+        console.warn("Airdrop failed, continuing anyway...", e);
+      }
     }
 
     const [userAccountPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("user"), wallet.publicKey.toBuffer()],
+      [Buffer.from("user"), publicKey.toBuffer()],
       program.programId
     );
 
     try {
-      const txSignature = await program.methods
+      // --- THE FIX ---
+      // Instead of .rpc(), we build a transaction and use sendTransaction
+      const transaction = await program.methods
         .initializeUser()
         .accountsPartial({
           userAccount: userAccountPda,
-          payer: wallet.publicKey,
-          systemProgram: anchor.web3.SystemProgram.programId,
+          payer: publicKey,
+          systemProgram: SystemProgram.programId,
         })
-        .rpc();
+        .transaction();
 
-      await provider.connection.confirmTransaction(txSignature, "confirmed");
+      transaction.feePayer = publicKey;
+      const { blockhash, lastValidBlockHeight } = await provider.connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+
+      // This triggers the Mobile Wallet Adapter correctly
+      const signature = await sendTransaction(transaction, provider.connection);
+
+      await provider.connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight
+      }, "confirmed");
+
       setIsInitialized(true);
     } catch (error) {
       console.error("Failed to initialize user account:", error);
       throw error;
     }
-  }, [program, provider, wallet.publicKey]);
+  }, [program, provider, publicKey, sendTransaction]);
 
   return (
     <ProgramContext.Provider

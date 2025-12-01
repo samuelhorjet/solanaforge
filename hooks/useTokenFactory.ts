@@ -1,6 +1,6 @@
 // FILE: hooks/useTokenFactory.ts
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useProgram } from "@/components/solana-provider";
 import * as anchor from "@coral-xyz/anchor";
@@ -19,12 +19,10 @@ import {
 } from "@solana/spl-token";
 import { MPL_TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
 import { Token } from "@/types/token";
-import { triggerMobileWalletRedirect } from "@/lib/wallet-utils"; 
 
 export type TokenStandard = "token" | "token-2022";
 export type AddressMethod = "random" | "custom";
 
-// --- HELPER: Ensure URL has protocol ---
 const ensureProtocol = (url: string) => {
   if (!url) return "";
   if (!/^https?:\/\//i.test(url)) {
@@ -34,8 +32,8 @@ const ensureProtocol = (url: string) => {
 };
 
 export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
-  const { publicKey } = useWallet();
-  const wallet = useWallet();
+  // Destructure sendTransaction
+  const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
   const { program } = useProgram();
 
@@ -90,12 +88,10 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [signature, setSignature] = useState<string | null>(null);
 
-  // --- HELPERS ---
-
+  // --- HELPERS (Keep existing handleKeypairUpload, stopGrinding, grindVanityAddress, handleInputChange, handleImageSelect, uploadToIpfs, validate) ---
   const handleKeypairUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    // ... (Keep existing logic)
     const file = e.target.files?.[0];
     if (!file) return;
     setKeypairFileError(null);
@@ -137,7 +133,6 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   };
 
   const grindVanityAddress = (continueSearch = false) => {
-    // ... (Keep existing logic)
     if (!vanityPrefix) return;
     const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
     if (!base58Regex.test(vanityPrefix)) {
@@ -181,7 +176,6 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear errors when user types
     if (errors[field]) {
       setErrors((prev) => {
         const newErrs = { ...prev };
@@ -211,7 +205,6 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     return (await res.json()).url;
   };
 
-  // --- UPDATED VALIDATION LOGIC ---
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.name.trim()) errs.name = "Name required.";
@@ -221,40 +214,30 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
       errs.decimals = "Invalid decimals.";
     if (Number(formData.initialSupply) <= 0)
       errs.initialSupply = "Invalid supply.";
-
-    // Social Validation
     if (formData.twitter) {
-      // Allows twitter.com or x.com
       const twitterRegex =
         /^(https?:\/\/)?(www\.)?(twitter|x)\.com\/[a-zA-Z0-9_]{1,15}\/?$/;
       if (!twitterRegex.test(formData.twitter)) {
         errs.twitter = "Invalid Twitter URL (e.g. https://x.com/username)";
       }
     }
-
     if (formData.telegram) {
-      // Allows t.me or telegram.me
       const telegramRegex =
         /^(https?:\/\/)?(www\.)?(t\.me|telegram\.me)\/[a-zA-Z0-9_]{5,32}\/?$/;
       if (!telegramRegex.test(formData.telegram)) {
         errs.telegram = "Invalid Telegram URL (e.g. https://t.me/username)";
       }
     }
-
     if (formData.website) {
-      // Basic URL check
       const urlRegex =
         /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
       if (!urlRegex.test(formData.website)) {
         errs.website = "Invalid Website URL";
       }
     }
-
-    // Step 1 Check
     if (addressMethod === "custom" && !uploadedKeypair && !selectedVanityKey) {
       errs.address = "You selected Custom Address but haven't provided one.";
     }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -271,31 +254,28 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
       const imgUrl = await uploadToIpfs(tokenImage!);
 
       setStatusMessage("Uploading Metadata...");
-
-      // --- FIX: Ensure Protocols on Links ---
       const cleanWebsite = ensureProtocol(formData.website);
       const cleanTwitter = ensureProtocol(formData.twitter);
       const cleanTelegram = ensureProtocol(formData.telegram);
 
-      // Construct rich metadata
       const metadataPayload = {
         name: formData.name,
         symbol: formData.symbol,
         description: formData.description,
         image: imgUrl,
-        external_url: cleanWebsite, // <--- Fixed Link
+        external_url: cleanWebsite,
         attributes: [] as any[],
       };
 
       if (cleanTwitter)
         metadataPayload.attributes.push({
           trait_type: "Twitter",
-          value: cleanTwitter, // <--- Fixed Link
+          value: cleanTwitter,
         });
       if (cleanTelegram)
         metadataPayload.attributes.push({
           trait_type: "Telegram",
-          value: cleanTelegram, // <--- Fixed Link
+          value: cleanTelegram,
         });
 
       const metaUrl = await uploadToIpfs(
@@ -307,7 +287,6 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
 
       setStatusMessage("Building Transaction...");
 
-      // ... (Keep existing mint keypair logic)
       let mintKeypair: Keypair;
       if (addressMethod === "custom") {
         if (uploadedKeypair) {
@@ -363,11 +342,10 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         ? Math.floor(Number(formData.interestRate))
         : 0;
 
-      setStatusMessage("Please sign transaction...");
+      setStatusMessage("Please sign transaction in your wallet...");
 
-      triggerMobileWalletRedirect(wallet);
-
-      const tx = await program.methods
+      // --- FIX: Transaction Builder + sendTransaction + Signers ---
+      const transaction = await program.methods
         .createToken(
           formData.name,
           formData.symbol,
@@ -398,8 +376,28 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
           rent: SYSVAR_RENT_PUBKEY,
           instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
         })
-        .signers([mintKeypair])
-        .rpc();
+        .transaction();
+
+      // 1. Set Blockhash
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      // 2. IMPORTANT: Partial Sign the Mint Keypair
+      transaction.partialSign(mintKeypair);
+
+      // 3. Send via Wallet Adapter (It adds the User/FeePayer signature)
+      const tx = await sendTransaction(transaction, connection);
+
+      await connection.confirmTransaction(
+        {
+          signature: tx,
+          blockhash,
+          lastValidBlockHeight,
+        },
+        "confirmed"
+      );
 
       setSignature(tx);
       setStatusMessage("Success!");

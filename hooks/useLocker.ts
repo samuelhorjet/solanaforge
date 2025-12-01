@@ -1,7 +1,6 @@
 // FILE: hooks/useLocker.ts
 
 import { useState, useCallback } from "react";
-import { triggerMobileWalletRedirect } from "@/lib/wallet-utils";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import {
@@ -12,7 +11,6 @@ import { BN } from "@coral-xyz/anchor";
 import { useProgram } from "@/components/solana-provider";
 import { fetchTokenMetadata } from "@/hooks/useTokenMetadata";
 
-// The ID of the program that actually stores the data
 const DLOOM_LOCKER_PROGRAM_ID = new PublicKey(
   "AVfmdPiqXfc15Pt8PPRXxTP5oMs4D1CdijARiz8mFMFD"
 );
@@ -28,24 +26,24 @@ export interface LockRecord {
   tokenName?: string;
   tokenSymbol?: string;
   decimals: number;
-  image?: string; // <--- ADDED IMAGE FIELD
+  image?: string;
 }
 
 export function useLocker() {
   const { connection } = useConnection();
-  const wallet = useWallet(); 
-  const { publicKey } = useWallet();
+  // Destructure sendTransaction here
+  const { publicKey, sendTransaction } = useWallet();
   const { program } = useProgram();
 
   const [locks, setLocks] = useState<LockRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // --- 1. MANUAL DECODER ---
+  // ... (Keep existing decodeLockRecord and fetchUserLocks as they are - no changes needed there) ...
   const decodeLockRecord = (buffer: Buffer, pubkey: PublicKey) => {
     try {
-      let offset = 8; // Skip discriminator
-      offset += 1; // Skip Bump
+      let offset = 8;
+      offset += 1;
       const owner = new PublicKey(buffer.subarray(offset, offset + 32));
       offset += 32;
       const tokenMint = new PublicKey(buffer.subarray(offset, offset + 32));
@@ -71,11 +69,9 @@ export function useLocker() {
     }
   };
 
-  // --- 2. FETCH LOCKS ---
   const fetchUserLocks = useCallback(async () => {
     if (!publicKey) return;
     setIsLoading(true);
-
     try {
       const accounts = await connection.getProgramAccounts(
         DLOOM_LOCKER_PROGRAM_ID,
@@ -90,22 +86,15 @@ export function useLocker() {
           ],
         }
       );
-
       const formattedLocks: LockRecord[] = [];
-
       for (const acc of accounts) {
         const decoded = decodeLockRecord(acc.account.data, acc.pubkey);
         if (!decoded) continue;
-
-        // Fetch On-Chain Metadata
         const mint = decoded.tokenMint.toBase58();
         const meta = await fetchTokenMetadata(connection, mint);
-
-        // --- NEW: FETCH IMAGE FROM URI ---
         let imageUrl = "";
         if (meta.uri) {
           try {
-            // Clean URI (remove null bytes and whitespace)
             const cleanUri = meta.uri.replace(/\0/g, "").trim();
             if (cleanUri) {
               const response = await fetch(cleanUri);
@@ -118,8 +107,6 @@ export function useLocker() {
             console.warn("Failed to fetch JSON for lock:", mint);
           }
         }
-
-        // Fetch Decimals
         let decimals = 9;
         try {
           const mintInfo = await connection.getParsedAccountInfo(
@@ -146,10 +133,9 @@ export function useLocker() {
           tokenName: meta.name,
           tokenSymbol: meta.symbol,
           decimals,
-          image: imageUrl, // <--- Assign Image
+          image: imageUrl,
         });
       }
-
       setLocks(
         formattedLocks.sort(
           (a, b) => a.unlockDate.getTime() - b.unlockDate.getTime()
@@ -162,7 +148,7 @@ export function useLocker() {
     }
   }, [publicKey, connection]);
 
-  // --- 3. CREATE LOCK (Keep existing logic...) ---
+  // --- 3. CREATE LOCK ---
   const createLock = async (
     mintAddress: string,
     amount: string,
@@ -210,9 +196,8 @@ export function useLocker() {
         tokenProgramId
       );
 
-      triggerMobileWalletRedirect(wallet);
-
-      const tx = await program.methods
+      // --- FIX: Use Transaction Builder + sendTransaction ---
+      const transaction = await program.methods
         .proxyLockTokens(amountBN, unlockTimestamp, lockIdBN)
         .accountsPartial({
           owner: publicKey,
@@ -225,9 +210,19 @@ export function useLocker() {
           tokenProgram: tokenProgramId,
           rent: SYSVAR_RENT_PUBKEY,
         })
-        .rpc();
+        .transaction();
 
-      await connection.confirmTransaction(tx, "confirmed");
+      transaction.feePayer = publicKey;
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+
+      const tx = await sendTransaction(transaction, connection);
+
+      await connection.confirmTransaction(
+        { signature: tx, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
       setTimeout(() => fetchUserLocks(), 2000);
       return tx;
     } catch (error) {
@@ -238,7 +233,7 @@ export function useLocker() {
     }
   };
 
-  // --- 4. WITHDRAW (Keep existing logic...) ---
+  // --- 4. WITHDRAW ---
   const withdrawTokens = async (lock: LockRecord) => {
     if (!program || !publicKey) throw new Error("Wallet not connected");
     setIsProcessing(true);
@@ -270,7 +265,8 @@ export function useLocker() {
         tokenProgramId
       );
 
-      const tx = await program.methods
+      // --- FIX: Use Transaction Builder + sendTransaction ---
+      const transaction = await program.methods
         .proxyWithdrawTokens(lockIdBN)
         .accountsPartial({
           owner: publicKey,
@@ -281,9 +277,19 @@ export function useLocker() {
           tokenProgram: tokenProgramId,
           lockerProgram: DLOOM_LOCKER_PROGRAM_ID,
         })
-        .rpc();
+        .transaction();
 
-      await connection.confirmTransaction(tx, "confirmed");
+      transaction.feePayer = publicKey;
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+
+      const tx = await sendTransaction(transaction, connection);
+
+      await connection.confirmTransaction(
+        { signature: tx, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
       await fetchUserLocks();
       return tx;
     } catch (error) {
