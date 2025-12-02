@@ -183,7 +183,7 @@ export default function ClientWalletProvider({
         },
         authorizationResultCache: createDefaultAuthorizationResultCache(),
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
-        chain: "devnet",
+        chain: "solana:devnet",
       }),
       // 2. Standard Adapters
       new PhantomWalletAdapter(),
