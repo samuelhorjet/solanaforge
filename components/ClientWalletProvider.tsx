@@ -26,7 +26,7 @@ import rawIdl from "../idl/solana_forge.json";
 import { SolanaForge } from "../idl/solana_forge";
 import { ProgramContext } from "./solana-context";
 
-// This component handles the Anchor logic, same as before
+// ... [AnchorSetup Component remains exactly the same] ...
 const AnchorSetup = ({ children }: { children: ReactNode }) => {
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
@@ -146,6 +146,15 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
 // This component handles the Wallet Configuration
 export default function ClientWalletProvider({ children }: { children: ReactNode }) {
   const network = WalletAdapterNetwork.Devnet;
+  
+  // FIX: Determine the current origin dynamically to prevent wallet mismatch errors
+  const [currentUri, setCurrentUri] = useState<string>("https://solanaforge.app");
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCurrentUri(window.location.origin);
+    }
+  }, []);
 
   const wallets = useMemo(
     () => [
@@ -154,8 +163,8 @@ export default function ClientWalletProvider({ children }: { children: ReactNode
         addressSelector: createDefaultAddressSelector(),
         appIdentity: {
           name: "SolanaForge",
-          uri: "https://solana-forge.netlify.app",
-          icon: "https://solanaforge.app/icon.png",
+          uri: currentUri,
+          icon: `${currentUri}/icon.png`, 
         },
         authorizationResultCache: createDefaultAuthorizationResultCache(),
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
@@ -168,19 +177,17 @@ export default function ClientWalletProvider({ children }: { children: ReactNode
       new WalletConnectWalletAdapter({
         network: network,
         options: {
-          projectId:
-            process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID ||
-            "YOUR_PROJECT_ID_HERE",
+          projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "YOUR_PROJECT_ID_HERE",
           metadata: {
             name: "SolanaForge",
             description: "Professional Token Management DApp",
-            url: "https://solana-forge.netlify.app/",
-            icons: ["https://solanaforge.app/icon.png"],
+            url: currentUri, 
+            icons: [`${currentUri}/icon.png`], 
           },
         },
       }),
     ],
-    [network]
+    [network, currentUri]
   );
 
   return (
