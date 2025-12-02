@@ -28,7 +28,7 @@ import rawIdl from "../idl/solana_forge.json";
 import { SolanaForge } from "../idl/solana_forge";
 import { ProgramContext } from "./solana-context";
 
-// ... [AnchorSetup Component remains exactly the same] ...
+// This component handles Anchor Program initialization logic
 const AnchorSetup = ({ children }: { children: ReactNode }) => {
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
@@ -54,6 +54,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     return null;
   }, [provider]);
 
+  // Check if User Account exists on-chain
   useEffect(() => {
     const checkAccount = async () => {
       if (!program || !publicKey) {
@@ -77,6 +78,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     checkAccount();
   }, [program, publicKey]);
 
+  // Check Network Connection
   useEffect(() => {
     if (provider && provider.connection) {
       setIsNetworkCorrect(true);
@@ -85,6 +87,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     }
   }, [provider]);
 
+  // Initialize User Logic (Airdrop + Transaction)
   const initializeUserAccount = useCallback(async () => {
     if (!program || !publicKey || !provider) {
       throw new Error("Wallet not connected or program not available.");
@@ -154,6 +157,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// Main Export
 export default function ClientWalletProvider({
   children,
 }: {
@@ -161,29 +165,25 @@ export default function ClientWalletProvider({
 }) {
   const network = WalletAdapterNetwork.Devnet;
 
-  const [currentUri, setCurrentUri] = useState<string>(
-    "https://solanaforge.vercel.app"
-  );
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.location.origin) {
-      setCurrentUri(window.location.origin);
+  const wallets = useMemo(() => {
+    let currentUri = "https://solana-forge.netlify.app"; // Fallback
+    
+    if (typeof window !== "undefined") {
+      currentUri = window.location.origin;
     }
-  }, []);
 
-  const wallets = useMemo(
-    () => [
+    return [
       // 1. Mobile Wallet Adapter
       new SolanaMobileWalletAdapter({
         addressSelector: createDefaultAddressSelector(),
         appIdentity: {
           name: "SolanaForge",
           uri: currentUri,
-          icon: `${currentUri}/icon.jpeg`,
+          icon: `${currentUri}/icon.jpeg`, 
         },
         authorizationResultCache: createDefaultAuthorizationResultCache(),
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
-        chain: "solana:devnet",
+        chain: "devnet",
       }),
       // 2. Standard Adapters
       new PhantomWalletAdapter(),
@@ -199,13 +199,12 @@ export default function ClientWalletProvider({
             name: "SolanaForge",
             description: "Professional Token Management DApp",
             url: currentUri,
-            icons: [`${currentUri}/icon.png`],
+            icons: [`${currentUri}/icon.jpeg`],
           },
         },
       }),
-    ],
-    [network, currentUri]
-  );
+    ];
+  }, [network]);
 
   return (
     <WalletProvider wallets={wallets} autoConnect>
