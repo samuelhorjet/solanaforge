@@ -10,7 +10,6 @@ import {
   Keypair,
   SYSVAR_RENT_PUBKEY,
   SYSVAR_INSTRUCTIONS_PUBKEY,
-  Transaction,
 } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -33,8 +32,8 @@ const ensureProtocol = (url: string) => {
 };
 
 export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
-  // We need signTransaction to manually handle the flow
-  const { publicKey, sendTransaction, signTransaction } = useWallet();
+  // REMOVED: signTransaction (not needed with the fix)
+  const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
   const { program } = useProgram();
 
@@ -201,6 +200,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   ): Promise<string> => {
     const data = new FormData();
     data.append("file", file, isJson ? "metadata.json" : undefined);
+    // Ensure you have an endpoint for this, or mock it for testing
     const res = await fetch("/api/upload", { method: "POST", body: data });
     if (!res.ok) throw new Error("Upload failed");
     return (await res.json()).url;
@@ -378,45 +378,22 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         })
         .transaction();
 
-      // --- MANUAL TRANSACTION FLOW (Fixes Mobile) ---
-      setStatusMessage("Preparing to sign...");
+      // --- UNIFIED SIGNING FLOW (FIX FOR MOBILE) ---
+      
+      setStatusMessage("Requesting Wallet Signature...");
 
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
 
-      console.log("1. Signing with Mint Keypair (Local)...");
-      transaction.partialSign(mintKeypair);
-
-      let txSignature: string;
-
-      // Method A: Use signTransaction (Best for Mobile Wallets)
-      if (signTransaction) {
-        console.log("2. Requesting Wallet Signature (signTransaction)...");
-        setStatusMessage("Please check your wallet...");
-
-        // This triggers the Mobile App to open
-        const signedTx = await signTransaction(transaction);
-
-        console.log("3. Wallet Signed. Serializing...");
-        const rawTx = signedTx.serialize();
-
-        console.log("4. Broadcasting to Network...");
-        setStatusMessage("Sending to Solana...");
-        txSignature = await connection.sendRawTransaction(rawTx, {
-          skipPreflight: true, // Safety check
-          maxRetries: 5,
-        });
-      } else {
-        // Method B: Fallback (Desktop/Extension behavior)
-        console.log("2. Fallback: Using sendTransaction helper...");
-        // We pass the signer explicitly here for desktop extensions
-        txSignature = await sendTransaction(transaction, connection, {
-          signers: [mintKeypair],
-          skipPreflight: true,
-        });
-      }
+      // NOTE: We pass 'signers: [mintKeypair]'. 
+      // The Adapter handles combining the Mint signature + User signature.
+      // We also use skipPreflight: true to prevent mobile simulation errors.
+      const txSignature = await sendTransaction(transaction, connection, {
+        signers: [mintKeypair], 
+        skipPreflight: true, 
+      });
 
       console.log("Tx Sent:", txSignature);
       setStatusMessage("Confirming...");
