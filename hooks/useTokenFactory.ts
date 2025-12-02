@@ -32,7 +32,6 @@ const ensureProtocol = (url: string) => {
 };
 
 export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
-  // Destructure sendTransaction
   const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
   const { program } = useProgram();
@@ -88,7 +87,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [signature, setSignature] = useState<string | null>(null);
 
-  // --- HELPERS (Keep existing handleKeypairUpload, stopGrinding, grindVanityAddress, handleInputChange, handleImageSelect, uploadToIpfs, validate) ---
+  // --- HELPERS ---
   const handleKeypairUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -214,27 +213,19 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
       errs.decimals = "Invalid decimals.";
     if (Number(formData.initialSupply) <= 0)
       errs.initialSupply = "Invalid supply.";
-    if (formData.twitter) {
-      const twitterRegex =
-        /^(https?:\/\/)?(www\.)?(twitter|x)\.com\/[a-zA-Z0-9_]{1,15}\/?$/;
-      if (!twitterRegex.test(formData.twitter)) {
-        errs.twitter = "Invalid Twitter URL (e.g. https://x.com/username)";
-      }
-    }
-    if (formData.telegram) {
-      const telegramRegex =
-        /^(https?:\/\/)?(www\.)?(t\.me|telegram\.me)\/[a-zA-Z0-9_]{5,32}\/?$/;
-      if (!telegramRegex.test(formData.telegram)) {
-        errs.telegram = "Invalid Telegram URL (e.g. https://t.me/username)";
-      }
-    }
-    if (formData.website) {
-      const urlRegex =
-        /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-      if (!urlRegex.test(formData.website)) {
-        errs.website = "Invalid Website URL";
-      }
-    }
+
+    // Socials validation...
+    if (
+      formData.twitter &&
+      !/^(https?:\/\/)?(www\.)?(twitter|x)\.com\//.test(formData.twitter)
+    )
+      errs.twitter = "Invalid Twitter URL";
+    if (
+      formData.telegram &&
+      !/^(https?:\/\/)?(www\.)?(t\.me|telegram\.me)\//.test(formData.telegram)
+    )
+      errs.telegram = "Invalid Telegram URL";
+
     if (addressMethod === "custom" && !uploadedKeypair && !selectedVanityKey) {
       errs.address = "You selected Custom Address but haven't provided one.";
     }
@@ -243,7 +234,10 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   };
 
   const createToken = async () => {
-    if (!validate() || !publicKey || !program) return;
+    if (!validate() || !publicKey || !program) {
+      console.error("Validation failed or wallet not connected");
+      return;
+    }
 
     setIsCreating(true);
     setSignature(null);
@@ -304,6 +298,8 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         mintKeypair = Keypair.generate();
       }
 
+      console.log("Mint Keypair Public Key:", mintKeypair.publicKey.toBase58());
+
       const decimals = Number(formData.decimals);
       const supply = new anchor.BN(formData.initialSupply).mul(
         new anchor.BN(10).pow(new anchor.BN(decimals))
@@ -342,9 +338,9 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         ? Math.floor(Number(formData.interestRate))
         : 0;
 
-      setStatusMessage("Please sign transaction in your wallet...");
+      setStatusMessage("Please check your phone to sign...");
 
-      // --- FIX: Transaction Builder + sendTransaction + Signers ---
+      // --- BUILD TRANSACTION ---
       const transaction = await program.methods
         .createToken(
           formData.name,
@@ -378,17 +374,24 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         })
         .transaction();
 
-      // 1. Set Blockhash
+      // --- CRITICAL FIX FOR MOBILE WALLETS ---
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
 
-      // 2. IMPORTANT: Partial Sign the Mint Keypair
-      transaction.partialSign(mintKeypair);
+      console.log("Calling sendTransaction with extra signers...");
 
-      // 3. Send via Wallet Adapter (It adds the User/FeePayer signature)
-      const tx = await sendTransaction(transaction, connection);
+      // DO NOT call transaction.partialSign(mintKeypair) here.
+      // Instead, pass it in the `signers` array below.
+
+      const tx = await sendTransaction(transaction, connection, {
+        signers: [mintKeypair], // <--- PASS LOCAL KEYPAIR HERE
+        skipPreflight: false, // Ensures we validate signatures properly
+      });
+
+      console.log("Transaction Sent. Signature:", tx);
+      setStatusMessage("Confirming...");
 
       await connection.confirmTransaction(
         {
@@ -422,7 +425,11 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         telegram: cleanTelegram,
       });
     } catch (e: any) {
-      console.error(e);
+      console.error("Token Creation Error:", e);
+      // Log specific wallet error details
+      if (e.name) console.error("Error Name:", e.name);
+      if (e.message) console.error("Error Message:", e.message);
+
       setErrors({ form: e.message || "Transaction failed. Please try again." });
     } finally {
       setIsCreating(false);
