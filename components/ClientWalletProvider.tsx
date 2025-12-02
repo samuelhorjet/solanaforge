@@ -12,6 +12,12 @@ import {
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { WalletConnectWalletAdapter } from "@solana/wallet-adapter-walletconnect";
+import { 
+  SolanaMobileWalletAdapter,
+  createDefaultAddressSelector,
+  createDefaultAuthorizationResultCache,
+  createDefaultWalletNotFoundHandler
+} from "@solana-mobile/wallet-adapter-mobile";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl, PublicKey, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
@@ -143,20 +149,36 @@ export default function ClientWalletProvider({ children }: { children: ReactNode
 
   const wallets = useMemo(
     () => [
+      // 1. Mobile Wallet Adapter
+      new SolanaMobileWalletAdapter({
+        addressSelector: createDefaultAddressSelector(),
+        appIdentity: {
+          name: "SolanaForge",
+          uri: "https://solana-forge.netlify.app",
+          icon: "https://solanaforge.app/icon.png",
+        },
+        authorizationResultCache: createDefaultAuthorizationResultCache(),
+        onWalletNotFound: createDefaultWalletNotFoundHandler(),
+        cluster: network,
+      }),
+      // 2. Standard Adapters
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter(),
+      // 3. WalletConnect
       new WalletConnectWalletAdapter({
-              network: network,
-              options: {
-                projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "YOUR_PROJECT_ID_HERE",
-                metadata: {
-                  name: "SolanaForge",
-                  description: "Professional Token Management DApp",
-                  url: "https://solana-forge.netlify.app/", 
-                  icons: ["https://solanaforge.app/icon.png"], 
-                },
-              },
-            }),
+        network: network,
+        options: {
+          projectId:
+            process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID ||
+            "YOUR_PROJECT_ID_HERE",
+          metadata: {
+            name: "SolanaForge",
+            description: "Professional Token Management DApp",
+            url: "https://solana-forge.netlify.app/",
+            icons: ["https://solanaforge.app/icon.png"],
+          },
+        },
+      }),
     ],
     [network]
   );
