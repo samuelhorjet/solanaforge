@@ -3,7 +3,7 @@
 
 import { useMemo, ReactNode, useState, useEffect, useCallback } from "react";
 import { WalletProvider, useWallet } from "@solana/wallet-adapter-react";
-import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
+import { WalletAdapterNetwork, WalletError } from "@solana/wallet-adapter-base";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
@@ -27,8 +27,9 @@ import { Program } from "@coral-xyz/anchor";
 import rawIdl from "../idl/solana_forge.json";
 import { SolanaForge } from "../idl/solana_forge";
 import { ProgramContext } from "./solana-context";
+import { DebugConsole } from "./DebugConsole"; // IMPORT THE DEBUG CONSOLE
 
-// This component handles Anchor Program initialization logic
+// --- ANCHOR SETUP (Program Logic) ---
 const AnchorSetup = ({ children }: { children: ReactNode }) => {
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
@@ -54,7 +55,6 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     return null;
   }, [provider]);
 
-  // Check if User Account exists on-chain
   useEffect(() => {
     const checkAccount = async () => {
       if (!program || !publicKey) {
@@ -62,6 +62,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
         return;
       }
       try {
+        console.log("Checking user account on-chain...");
         const [userAccountPda] = PublicKey.findProgramAddressSync(
           [Buffer.from("user"), publicKey.toBuffer()],
           program.programId
@@ -69,6 +70,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
         const userAccount = await program.account.userAccount.fetchNullable(
           userAccountPda
         );
+        console.log("User Account Found:", !!userAccount);
         setIsInitialized(!!userAccount);
       } catch (error) {
         console.error("Error checking account:", error);
@@ -78,7 +80,6 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     checkAccount();
   }, [program, publicKey]);
 
-  // Check Network Connection
   useEffect(() => {
     if (provider && provider.connection) {
       setIsNetworkCorrect(true);
@@ -87,14 +88,15 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     }
   }, [provider]);
 
-  // Initialize User Logic (Airdrop + Transaction)
   const initializeUserAccount = useCallback(async () => {
     if (!program || !publicKey || !provider) {
       throw new Error("Wallet not connected or program not available.");
     }
-    const balance = await provider.connection.getBalance(publicKey);
-    if (balance < 0.5 * LAMPORTS_PER_SOL) {
-      try {
+    try {
+      console.log("Initializing User...");
+      const balance = await provider.connection.getBalance(publicKey);
+      if (balance < 0.5 * LAMPORTS_PER_SOL) {
+        console.log("Requesting Airdrop...");
         const signature = await provider.connection.requestAirdrop(
           publicKey,
           1 * LAMPORTS_PER_SOL
@@ -105,41 +107,40 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
           { signature, blockhash, lastValidBlockHeight },
           "confirmed"
         );
-      } catch (e) {
-        console.warn("Airdrop failed", e);
       }
+
+      const [userAccountPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("user"), publicKey.toBuffer()],
+        program.programId
+      );
+
+      const transaction = await program.methods
+        .initializeUser()
+        .accountsPartial({
+          userAccount: userAccountPda,
+          payer: publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .transaction();
+
+      transaction.feePayer = publicKey;
+      const { blockhash, lastValidBlockHeight } =
+        await provider.connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+
+      console.log("Sending Transaction...");
+      const signature = await sendTransaction(transaction, provider.connection);
+      await provider.connection.confirmTransaction(
+        { signature, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
+
+      console.log("Initialization Success!");
+      setIsInitialized(true);
+    } catch (e: any) {
+      console.error("Initialization Failed:", e);
+      throw e;
     }
-
-    const [userAccountPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("user"), publicKey.toBuffer()],
-      program.programId
-    );
-
-    const transaction = await program.methods
-      .initializeUser()
-      .accountsPartial({
-        userAccount: userAccountPda,
-        payer: publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .transaction();
-
-    transaction.feePayer = publicKey;
-    const { blockhash, lastValidBlockHeight } =
-      await provider.connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    const signature = await sendTransaction(transaction, provider.connection);
-
-    await provider.connection.confirmTransaction(
-      {
-        signature,
-        blockhash,
-        lastValidBlockHeight,
-      },
-      "confirmed"
-    );
-
-    setIsInitialized(true);
   }, [program, provider, publicKey, sendTransaction]);
 
   return (
@@ -157,7 +158,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Main Export
+// --- MAIN PROVIDER ---
 export default function ClientWalletProvider({
   children,
 }: {
@@ -166,38 +167,33 @@ export default function ClientWalletProvider({
   const network = WalletAdapterNetwork.Devnet;
 
   const wallets = useMemo(() => {
-    let currentUri = "https://solana-forge.netlify.app"; // Fallback
-    
+    let currentUri = "https://solana-forge.netlify.app";
     if (typeof window !== "undefined") {
       currentUri = window.location.origin;
     }
 
     return [
-      // 1. Mobile Wallet Adapter
       new SolanaMobileWalletAdapter({
         addressSelector: createDefaultAddressSelector(),
         appIdentity: {
           name: "SolanaForge",
           uri: currentUri,
-          icon: `${currentUri}/icon.jpeg`, 
+          icon: `${currentUri}/icon.jpeg`,
         },
         authorizationResultCache: createDefaultAuthorizationResultCache(),
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
         chain: "solana:devnet",
       }),
-      // 2. Standard Adapters
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter(),
-      // 3. WalletConnect
       new WalletConnectWalletAdapter({
         network: network,
         options: {
           projectId:
-            process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID ||
-            "YOUR_PROJECT_ID_HERE",
+            process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "YOUR_ID",
           metadata: {
             name: "SolanaForge",
-            description: "Professional Token Management DApp",
+            description: "Token Management DApp",
             url: currentUri,
             icons: [`${currentUri}/icon.jpeg`],
           },
@@ -206,9 +202,15 @@ export default function ClientWalletProvider({
     ];
   }, [network]);
 
+  const onError = useCallback((error: WalletError) => {
+    console.error("WALLET ADAPTER ERROR:", error.name, error.message);
+    console.error(JSON.stringify(error));
+  }, []);
+
   return (
-    <WalletProvider wallets={wallets} autoConnect>
+    <WalletProvider wallets={wallets} autoConnect onError={onError}>
       <WalletModalProvider>
+        <DebugConsole />
         <AnchorSetup>{children}</AnchorSetup>
       </WalletModalProvider>
     </WalletProvider>
