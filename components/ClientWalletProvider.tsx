@@ -2,24 +2,26 @@
 "use client";
 
 import { useMemo, ReactNode, useState, useEffect, useCallback } from "react";
-import {
-  WalletProvider,
-  useWallet,
-} from "@solana/wallet-adapter-react";
+import { WalletProvider, useWallet } from "@solana/wallet-adapter-react";
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { WalletConnectWalletAdapter } from "@solana/wallet-adapter-walletconnect";
-import { 
+import {
   SolanaMobileWalletAdapter,
   createDefaultAddressSelector,
   createDefaultAuthorizationResultCache,
-  createDefaultWalletNotFoundHandler
+  createDefaultWalletNotFoundHandler,
 } from "@solana-mobile/wallet-adapter-mobile";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { clusterApiUrl, PublicKey, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
+import {
+  clusterApiUrl,
+  PublicKey,
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+} from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import rawIdl from "../idl/solana_forge.json";
@@ -33,7 +35,9 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
   const { publicKey, sendTransaction, wallet: adapterWallet } = useWallet();
 
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
-  const [isNetworkCorrect, setIsNetworkCorrect] = useState<boolean | null>(null);
+  const [isNetworkCorrect, setIsNetworkCorrect] = useState<boolean | null>(
+    null
+  );
 
   const provider = useMemo(() => {
     if (!publicKey || !adapterWallet) return null;
@@ -50,7 +54,6 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     return null;
   }, [provider]);
 
-  // 1. Check if User Account Exists
   useEffect(() => {
     const checkAccount = async () => {
       if (!program || !publicKey) {
@@ -74,7 +77,6 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     checkAccount();
   }, [program, publicKey]);
 
-  // 2. Check Network Status
   useEffect(() => {
     if (provider && provider.connection) {
       setIsNetworkCorrect(true);
@@ -83,18 +85,23 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     }
   }, [provider]);
 
-  // 3. Initialize User Account
   const initializeUserAccount = useCallback(async () => {
     if (!program || !publicKey || !provider) {
       throw new Error("Wallet not connected or program not available.");
     }
-    // Airdrop check
     const balance = await provider.connection.getBalance(publicKey);
     if (balance < 0.5 * LAMPORTS_PER_SOL) {
       try {
-        const signature = await provider.connection.requestAirdrop(publicKey, 1 * LAMPORTS_PER_SOL);
-        const { blockhash, lastValidBlockHeight } = await provider.connection.getLatestBlockhash();
-        await provider.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+        const signature = await provider.connection.requestAirdrop(
+          publicKey,
+          1 * LAMPORTS_PER_SOL
+        );
+        const { blockhash, lastValidBlockHeight } =
+          await provider.connection.getLatestBlockhash();
+        await provider.connection.confirmTransaction(
+          { signature, blockhash, lastValidBlockHeight },
+          "confirmed"
+        );
       } catch (e) {
         console.warn("Airdrop failed", e);
       }
@@ -115,15 +122,19 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
       .transaction();
 
     transaction.feePayer = publicKey;
-    const { blockhash, lastValidBlockHeight } = await provider.connection.getLatestBlockhash();
+    const { blockhash, lastValidBlockHeight } =
+      await provider.connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
     const signature = await sendTransaction(transaction, provider.connection);
 
-    await provider.connection.confirmTransaction({
-      signature,
-      blockhash,
-      lastValidBlockHeight
-    }, "confirmed");
+    await provider.connection.confirmTransaction(
+      {
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      },
+      "confirmed"
+    );
 
     setIsInitialized(true);
   }, [program, provider, publicKey, sendTransaction]);
@@ -143,15 +154,19 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// This component handles the Wallet Configuration
-export default function ClientWalletProvider({ children }: { children: ReactNode }) {
+export default function ClientWalletProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const network = WalletAdapterNetwork.Devnet;
-  
-  // FIX: Determine the current origin dynamically to prevent wallet mismatch errors
-  const [currentUri, setCurrentUri] = useState<string>("https://solanaforge.app");
-  
+
+  const [currentUri, setCurrentUri] = useState<string>(
+    "https://solanaforge.vercel.app"
+  );
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && window.location.origin) {
       setCurrentUri(window.location.origin);
     }
   }, []);
@@ -164,11 +179,11 @@ export default function ClientWalletProvider({ children }: { children: ReactNode
         appIdentity: {
           name: "SolanaForge",
           uri: currentUri,
-          icon: `${currentUri}/icon.png`, 
+          icon: `${currentUri}/icon.jpeg`,
         },
         authorizationResultCache: createDefaultAuthorizationResultCache(),
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
-        cluster: network,
+        chain: "solana:devnet",
       }),
       // 2. Standard Adapters
       new PhantomWalletAdapter(),
@@ -177,12 +192,14 @@ export default function ClientWalletProvider({ children }: { children: ReactNode
       new WalletConnectWalletAdapter({
         network: network,
         options: {
-          projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "YOUR_PROJECT_ID_HERE",
+          projectId:
+            process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID ||
+            "YOUR_PROJECT_ID_HERE",
           metadata: {
             name: "SolanaForge",
             description: "Professional Token Management DApp",
-            url: currentUri, 
-            icons: [`${currentUri}/icon.png`], 
+            url: currentUri,
+            icons: [`${currentUri}/icon.png`],
           },
         },
       }),

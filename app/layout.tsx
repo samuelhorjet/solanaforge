@@ -20,7 +20,11 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "SolanaForge - Professional Token Management",
   description: "Professional Solana DApp for token creation, swapping, and portfolio management",
-  generator: "v0.app",
+   icons: {
+    icon: "/icon.jpeg", // This points to public/icon.png
+    shortcut: "/icon.jpeg",
+    apple: "/icon.jpeg",
+  },
 }
 
 export default function RootLayout({
