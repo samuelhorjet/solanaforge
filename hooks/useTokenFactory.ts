@@ -10,6 +10,7 @@ import {
   Keypair,
   SYSVAR_RENT_PUBKEY,
   SYSVAR_INSTRUCTIONS_PUBKEY,
+  Transaction,
 } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -32,7 +33,8 @@ const ensureProtocol = (url: string) => {
 };
 
 export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
-  const { publicKey, sendTransaction } = useWallet();
+  // We need signTransaction to manually handle the flow
+  const { publicKey, sendTransaction, signTransaction } = useWallet();
   const { connection } = useConnection();
   const { program } = useProgram();
 
@@ -87,7 +89,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [signature, setSignature] = useState<string | null>(null);
 
-  // --- HELPERS ---
+  // --- HELPERS (unchanged) ---
   const handleKeypairUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -233,16 +235,10 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   };
 
   const createToken = async () => {
-    // Extensive Logging to catch the "Validation Failed" issue
     console.log("Starting createToken...");
-    if (!publicKey) {
-      console.error("Wallet not connected");
+    if (!publicKey || !program) {
+      console.error("Wallet or Program not ready");
       setErrors({ form: "Wallet not connected" });
-      return;
-    }
-    if (!program) {
-      console.error("Program not initialized");
-      setErrors({ form: "Program not ready" });
       return;
     }
     if (!validate()) {
@@ -255,10 +251,9 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     setErrors({});
 
     try {
-      setStatusMessage("Uploading Image to IPFS...");
+      setStatusMessage("Uploading Metadata...");
       const imgUrl = await uploadToIpfs(tokenImage!);
 
-      setStatusMessage("Uploading Metadata...");
       const cleanWebsite = ensureProtocol(formData.website);
       const cleanTwitter = ensureProtocol(formData.twitter);
       const cleanTelegram = ensureProtocol(formData.telegram);
@@ -349,8 +344,6 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         ? Math.floor(Number(formData.interestRate))
         : 0;
 
-      setStatusMessage("Preparing Transaction...");
-
       // --- BUILD TRANSACTION ---
       const transaction = await program.methods
         .createToken(
@@ -385,42 +378,62 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         })
         .transaction();
 
-      // --- CRITICAL FIX FOR MOBILE ---
-      // 1. Get Blockhash
+      // --- MANUAL TRANSACTION FLOW (Fixes Mobile) ---
+      setStatusMessage("Preparing to sign...");
+
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
 
-      console.log("Signing with Mint Keypair...");
-      // 2. PARTIAL SIGN MANUALLY
+      console.log("1. Signing with Mint Keypair (Local)...");
       transaction.partialSign(mintKeypair);
 
-      console.log("Sending to Wallet...");
+      let txSignature: string;
 
-      // 3. SEND WITH SKIP PREFLIGHT
-      // We do NOT pass 'signers' array because we manually signed above.
-      // We MUST pass skipPreflight: true so the browser doesn't try to verify the User signature (which is missing).
-      const tx = await sendTransaction(transaction, connection, {
-        skipPreflight: true,
-        maxRetries: 5,
-      });
+      // Method A: Use signTransaction (Best for Mobile Wallets)
+      if (signTransaction) {
+        console.log("2. Requesting Wallet Signature (signTransaction)...");
+        setStatusMessage("Please check your wallet...");
 
-      console.log("Tx Sent to network, waiting for confirmation...", tx);
+        // This triggers the Mobile App to open
+        const signedTx = await signTransaction(transaction);
+
+        console.log("3. Wallet Signed. Serializing...");
+        const rawTx = signedTx.serialize();
+
+        console.log("4. Broadcasting to Network...");
+        setStatusMessage("Sending to Solana...");
+        txSignature = await connection.sendRawTransaction(rawTx, {
+          skipPreflight: true, // Safety check
+          maxRetries: 5,
+        });
+      } else {
+        // Method B: Fallback (Desktop/Extension behavior)
+        console.log("2. Fallback: Using sendTransaction helper...");
+        // We pass the signer explicitly here for desktop extensions
+        txSignature = await sendTransaction(transaction, connection, {
+          signers: [mintKeypair],
+          skipPreflight: true,
+        });
+      }
+
+      console.log("Tx Sent:", txSignature);
       setStatusMessage("Confirming...");
 
       await connection.confirmTransaction(
         {
-          signature: tx,
+          signature: txSignature,
           blockhash,
           lastValidBlockHeight,
         },
         "confirmed"
       );
 
-      setSignature(tx);
+      setSignature(txSignature);
       setStatusMessage("Success!");
 
+      // ... Update UI state ...
       onTokenCreated({
         id: mintKeypair.publicKey.toBase58(),
         mintAddress: mintKeypair.publicKey.toBase58(),
@@ -442,7 +455,10 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
       });
     } catch (e: any) {
       console.error("Token Creation Error:", e);
-      setErrors({ form: e.message || "Transaction failed." });
+      // Nice error message handling
+      let msg = e.message || "Transaction failed";
+      if (msg.includes("User rejected")) msg = "Request rejected by wallet";
+      setErrors({ form: msg });
     } finally {
       setIsCreating(false);
       setUploadedKeypair(null);
