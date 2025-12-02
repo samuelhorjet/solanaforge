@@ -178,7 +178,7 @@ export default function ClientWalletProvider({
         appIdentity: {
           name: "SolanaForge",
           uri: currentUri,
-          icon: `${currentUri}/icon.jpeg`,
+          icon: "/icon.jpeg",
         },
         authorizationResultCache: createDefaultAuthorizationResultCache(),
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
@@ -195,7 +195,7 @@ export default function ClientWalletProvider({
             name: "SolanaForge",
             description: "Token Management DApp",
             url: currentUri,
-            icons: [`${currentUri}/icon.jpeg`],
+            icons: ["/icon.jpeg"],
           },
         },
       }),
