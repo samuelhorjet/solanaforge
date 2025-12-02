@@ -214,7 +214,6 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     if (Number(formData.initialSupply) <= 0)
       errs.initialSupply = "Invalid supply.";
 
-    // Socials validation...
     if (
       formData.twitter &&
       !/^(https?:\/\/)?(www\.)?(twitter|x)\.com\//.test(formData.twitter)
@@ -234,8 +233,20 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
   };
 
   const createToken = async () => {
-    if (!validate() || !publicKey || !program) {
-      console.error("Validation failed or wallet not connected");
+    // Extensive Logging to catch the "Validation Failed" issue
+    console.log("Starting createToken...");
+    if (!publicKey) {
+      console.error("Wallet not connected");
+      setErrors({ form: "Wallet not connected" });
+      return;
+    }
+    if (!program) {
+      console.error("Program not initialized");
+      setErrors({ form: "Program not ready" });
+      return;
+    }
+    if (!validate()) {
+      console.error("Validation failed", errors);
       return;
     }
 
@@ -298,7 +309,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         mintKeypair = Keypair.generate();
       }
 
-      console.log("Mint Keypair Public Key:", mintKeypair.publicKey.toBase58());
+      console.log("Mint Keypair:", mintKeypair.publicKey.toBase58());
 
       const decimals = Number(formData.decimals);
       const supply = new anchor.BN(formData.initialSupply).mul(
@@ -338,7 +349,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         ? Math.floor(Number(formData.interestRate))
         : 0;
 
-      setStatusMessage("Please check your phone to sign...");
+      setStatusMessage("Preparing Transaction...");
 
       // --- BUILD TRANSACTION ---
       const transaction = await program.methods
@@ -374,23 +385,28 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
         })
         .transaction();
 
-      // --- CRITICAL FIX FOR MOBILE WALLETS ---
+      // --- CRITICAL FIX FOR MOBILE ---
+      // 1. Get Blockhash
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
 
-      console.log("Calling sendTransaction with extra signers...");
+      console.log("Signing with Mint Keypair...");
+      // 2. PARTIAL SIGN MANUALLY
+      transaction.partialSign(mintKeypair);
 
-      // DO NOT call transaction.partialSign(mintKeypair) here.
-      // Instead, pass it in the `signers` array below.
+      console.log("Sending to Wallet...");
 
+      // 3. SEND WITH SKIP PREFLIGHT
+      // We do NOT pass 'signers' array because we manually signed above.
+      // We MUST pass skipPreflight: true so the browser doesn't try to verify the User signature (which is missing).
       const tx = await sendTransaction(transaction, connection, {
-        signers: [mintKeypair], // <--- PASS LOCAL KEYPAIR HERE
-        skipPreflight: false, // Ensures we validate signatures properly
+        skipPreflight: true,
+        maxRetries: 5,
       });
 
-      console.log("Transaction Sent. Signature:", tx);
+      console.log("Tx Sent to network, waiting for confirmation...", tx);
       setStatusMessage("Confirming...");
 
       await connection.confirmTransaction(
@@ -426,11 +442,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
       });
     } catch (e: any) {
       console.error("Token Creation Error:", e);
-      // Log specific wallet error details
-      if (e.name) console.error("Error Name:", e.name);
-      if (e.message) console.error("Error Message:", e.message);
-
-      setErrors({ form: e.message || "Transaction failed. Please try again." });
+      setErrors({ form: e.message || "Transaction failed." });
     } finally {
       setIsCreating(false);
       setUploadedKeypair(null);
