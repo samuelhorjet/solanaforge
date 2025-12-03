@@ -35,7 +35,8 @@ export interface LockRecord {
 
 export function useLocker() {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
+  // Destructure signTransaction
+  const { publicKey, sendTransaction, signTransaction } = useWallet();
   const { program } = useProgram();
 
   const [locks, setLocks] = useState<LockRecord[]>([]);
@@ -152,7 +153,7 @@ export function useLocker() {
     }
   }, [publicKey, connection]);
 
-  // --- 3. CREATE LOCK (VersionedTransaction) ---
+  // --- 3. CREATE LOCK (Fixed for Mobile) ---
   const createLock = async (
     mintAddress: string,
     amount: string,
@@ -228,8 +229,21 @@ export function useLocker() {
 
       const transaction = new VersionedTransaction(messageV0);
 
-      // 3. Send & Confirm
-      const tx = await sendTransaction(transaction, connection);
+      let tx: string;
+
+      // 3. Send (Mobile Fix)
+      if (signTransaction) {
+        const signedTx = await signTransaction(transaction);
+        tx = await connection.sendRawTransaction(signedTx.serialize(), {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      } else {
+        tx = await sendTransaction(transaction, connection, {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      }
 
       await connection.confirmTransaction(
         { signature: tx, blockhash, lastValidBlockHeight },
@@ -246,7 +260,7 @@ export function useLocker() {
     }
   };
 
-  // --- 4. WITHDRAW (VersionedTransaction) ---
+  // --- 4. WITHDRAW (Fixed for Mobile) ---
   const withdrawTokens = async (lock: LockRecord) => {
     if (!program || !publicKey) throw new Error("Wallet not connected");
     setIsProcessing(true);
@@ -304,8 +318,21 @@ export function useLocker() {
 
       const transaction = new VersionedTransaction(messageV0);
 
-      // 3. Send & Confirm
-      const tx = await sendTransaction(transaction, connection);
+      let tx: string;
+
+      // 3. Send (Mobile Fix)
+      if (signTransaction) {
+        const signedTx = await signTransaction(transaction);
+        tx = await connection.sendRawTransaction(signedTx.serialize(), {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      } else {
+        tx = await sendTransaction(transaction, connection, {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      }
 
       await connection.confirmTransaction(
         { signature: tx, blockhash, lastValidBlockHeight },

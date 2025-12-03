@@ -19,7 +19,8 @@ import {
 
 export function useTokenActions() {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
+  // Destructure signTransaction
+  const { publicKey, sendTransaction, signTransaction } = useWallet();
   const [isProcessing, setIsProcessing] = useState(false);
 
   // --- TRANSFER ---
@@ -63,16 +64,13 @@ export function useTokenActions() {
         const destAccountInfo = await connection.getAccountInfo(destATA);
 
         if (!destAccountInfo) {
-          console.log(
-            "Destination ATA missing. Adding creation instruction..."
-          );
           instructions.push(
             createAssociatedTokenAccountInstruction(
-              publicKey, // Payer
-              destATA, // Account to create
-              dest, // Owner
-              mint, // Mint
-              progId, // Program
+              publicKey,
+              destATA,
+              dest,
+              mint,
+              progId,
               ASSOCIATED_TOKEN_PROGRAM_ID
             )
           );
@@ -104,8 +102,24 @@ export function useTokenActions() {
 
         const transaction = new VersionedTransaction(messageV0);
 
-        // 6. Send
-        const signature = await sendTransaction(transaction, connection);
+        let signature: string;
+
+        // 6. Send Strategy (Mobile Fix)
+        if (signTransaction) {
+          const signedTx = await signTransaction(transaction);
+          signature = await connection.sendRawTransaction(
+            signedTx.serialize(),
+            {
+              skipPreflight: true,
+              maxRetries: 5,
+            }
+          );
+        } else {
+          signature = await sendTransaction(transaction, connection, {
+            skipPreflight: true,
+            maxRetries: 5,
+          });
+        }
 
         // 7. Confirm
         await connection.confirmTransaction(
@@ -125,7 +139,7 @@ export function useTokenActions() {
         setIsProcessing(false);
       }
     },
-    [connection, publicKey, sendTransaction]
+    [connection, publicKey, sendTransaction, signTransaction]
   );
 
   // --- MINT MORE ---
@@ -203,8 +217,24 @@ export function useTokenActions() {
 
         const transaction = new VersionedTransaction(messageV0);
 
-        // 6. Send
-        const signature = await sendTransaction(transaction, connection);
+        let signature: string;
+
+        // 6. Send Strategy (Mobile Fix)
+        if (signTransaction) {
+          const signedTx = await signTransaction(transaction);
+          signature = await connection.sendRawTransaction(
+            signedTx.serialize(),
+            {
+              skipPreflight: true,
+              maxRetries: 5,
+            }
+          );
+        } else {
+          signature = await sendTransaction(transaction, connection, {
+            skipPreflight: true,
+            maxRetries: 5,
+          });
+        }
 
         await connection.confirmTransaction(
           {
@@ -223,7 +253,7 @@ export function useTokenActions() {
         setIsProcessing(false);
       }
     },
-    [connection, publicKey, sendTransaction]
+    [connection, publicKey, sendTransaction, signTransaction]
   );
 
   return { transferToken, mintMoreToken, isProcessing };

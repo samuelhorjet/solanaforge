@@ -35,12 +35,13 @@ export interface BurnQueueItem {
 
 export function useBurner() {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
+  // Destructure signTransaction
+  const { publicKey, sendTransaction, signTransaction } = useWallet();
   const { program } = useProgram();
   const [isLoading, setIsLoading] = useState(false);
   const [burnHistory, setBurnHistory] = useState<BurnHistoryItem[]>([]);
 
-  // --- 1. SINGLE BURN (VersionedTransaction) ---
+  // --- 1. SINGLE BURN ---
   const burnFromWallet = async (
     mintAddress: string,
     amount: number,
@@ -62,7 +63,6 @@ export function useBurner() {
         tokenProgram
       );
 
-      // 1. Get Instruction
       const instruction = await program.methods
         .proxyBurnFromWallet(amountBN)
         .accountsPartial({
@@ -74,7 +74,6 @@ export function useBurner() {
         })
         .instruction();
 
-      // 2. Build V0 Transaction
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
 
@@ -86,8 +85,20 @@ export function useBurner() {
 
       const transaction = new VersionedTransaction(messageV0);
 
-      // 3. Send & Confirm
-      const signature = await sendTransaction(transaction, connection);
+      let signature: string;
+
+      if (signTransaction) {
+        const signedTx = await signTransaction(transaction);
+        signature = await connection.sendRawTransaction(signedTx.serialize(), {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      } else {
+        signature = await sendTransaction(transaction, connection, {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      }
 
       await connection.confirmTransaction(
         {
@@ -104,7 +115,7 @@ export function useBurner() {
     }
   };
 
-  // --- 2. BATCH BURN (Sequential V0 Wrapper) ---
+  // --- 2. BATCH BURN ---
   const burnBatch = async (queue: BurnQueueItem[]) => {
     if (!program || !publicKey) throw new Error("Wallet not connected");
     setIsLoading(true);
@@ -113,7 +124,6 @@ export function useBurner() {
     try {
       for (const item of queue) {
         try {
-          // Execute individual burns using the updated V0 function
           const tx = await burnFromWallet(
             item.mint,
             parseFloat(item.amount),
@@ -144,7 +154,7 @@ export function useBurner() {
     }
   };
 
-  // --- 3. BURN FROM VAULT (VersionedTransaction) ---
+  // --- 3. BURN FROM VAULT ---
   const burnFromLock = async (
     mintAddress: string,
     lockIdStr: string,
@@ -173,7 +183,6 @@ export function useBurner() {
         DLOOM_LOCKER_PROGRAM_ID
       );
 
-      // 1. Get Instruction
       const instruction = await program.methods
         .proxyBurnFromLock(amountBN, lockIdBN)
         .accountsPartial({
@@ -188,7 +197,6 @@ export function useBurner() {
         })
         .instruction();
 
-      // 2. Build V0 Transaction
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
 
@@ -200,8 +208,20 @@ export function useBurner() {
 
       const transaction = new VersionedTransaction(messageV0);
 
-      // 3. Send & Confirm
-      const signature = await sendTransaction(transaction, connection);
+      let signature: string;
+
+      if (signTransaction) {
+        const signedTx = await signTransaction(transaction);
+        signature = await connection.sendRawTransaction(signedTx.serialize(), {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      } else {
+        signature = await sendTransaction(transaction, connection, {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      }
 
       await connection.confirmTransaction(
         {

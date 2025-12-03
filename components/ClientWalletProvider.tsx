@@ -1,6 +1,5 @@
 // FILE: components/ClientWalletProvider.tsx
-"use client";
-
+// ... (imports remain the same as Batch 1)
 import { useMemo, ReactNode, useState, useEffect, useCallback } from "react";
 import { WalletProvider, useWallet } from "@solana/wallet-adapter-react";
 import { WalletAdapterNetwork, WalletError } from "@solana/wallet-adapter-base";
@@ -31,17 +30,23 @@ import { SolanaForge } from "../idl/solana_forge";
 import { ProgramContext } from "./solana-context";
 import { DebugConsole } from "./DebugConsole";
 
-// --- ANCHOR SETUP (Program Logic) ---
 const AnchorSetup = ({ children }: { children: ReactNode }) => {
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
-  const { publicKey, sendTransaction, wallet: adapterWallet } = useWallet();
+  // Add signTransaction
+  const {
+    publicKey,
+    sendTransaction,
+    signTransaction,
+    wallet: adapterWallet,
+  } = useWallet();
 
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
   const [isNetworkCorrect, setIsNetworkCorrect] = useState<boolean | null>(
     null
   );
 
+  // ... (Provider and Program useMemos remain the same) ...
   const provider = useMemo(() => {
     if (!publicKey || !adapterWallet) return null;
     const connection = new anchor.web3.Connection(endpoint);
@@ -57,6 +62,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     return null;
   }, [provider]);
 
+  // ... (useEffect checkAccount remains the same) ...
   useEffect(() => {
     const checkAccount = async () => {
       if (!program || !publicKey) {
@@ -97,7 +103,6 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     try {
       console.log("Initializing User...");
 
-      // Check Balance for Airdrop
       const balance = await provider.connection.getBalance(publicKey);
       if (balance < 0.5 * LAMPORTS_PER_SOL) {
         console.log("Requesting Airdrop...");
@@ -118,7 +123,6 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
         program.programId
       );
 
-      // 1. Get Instruction
       const instruction = await program.methods
         .initializeUser()
         .accountsPartial({
@@ -128,11 +132,9 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
         })
         .instruction();
 
-      // 2. Get Blockhash
       const { blockhash, lastValidBlockHeight } =
         await provider.connection.getLatestBlockhash();
 
-      // 3. Create Versioned Transaction
       const messageV0 = new TransactionMessage({
         payerKey: publicKey,
         recentBlockhash: blockhash,
@@ -141,8 +143,24 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
 
       const transaction = new VersionedTransaction(messageV0);
 
+      let signature: string;
+
       console.log("Sending Transaction...");
-      const signature = await sendTransaction(transaction, provider.connection);
+      if (signTransaction) {
+        const signedTx = await signTransaction(transaction);
+        signature = await provider.connection.sendRawTransaction(
+          signedTx.serialize(),
+          {
+            skipPreflight: true,
+            maxRetries: 5,
+          }
+        );
+      } else {
+        signature = await sendTransaction(transaction, provider.connection, {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      }
 
       await provider.connection.confirmTransaction(
         { signature, blockhash, lastValidBlockHeight },
@@ -155,7 +173,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
       console.error("Initialization Failed:", e);
       throw e;
     }
-  }, [program, provider, publicKey, sendTransaction]);
+  }, [program, provider, publicKey, sendTransaction, signTransaction]);
 
   return (
     <ProgramContext.Provider
@@ -172,7 +190,7 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// --- MAIN PROVIDER ---
+// ... (ClientWalletProvider default export remains the same) ...
 export default function ClientWalletProvider({
   children,
 }: {

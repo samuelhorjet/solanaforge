@@ -34,7 +34,8 @@ const ensureProtocol = (url: string) => {
 };
 
 export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
-  const { publicKey, sendTransaction } = useWallet();
+  // Destructure signTransaction as well
+  const { publicKey, sendTransaction, signTransaction } = useWallet();
   const { connection } = useConnection();
   const { program } = useProgram();
 
@@ -243,7 +244,7 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
     return Object.keys(errs).length === 0;
   };
 
-  // --- CORE: CREATE TOKEN (Versioned) ---
+  // --- CORE: CREATE TOKEN (Versioned + Mobile Fix) ---
   const createToken = async () => {
     if (!validate() || !publicKey || !program) return;
 
@@ -392,24 +393,43 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
 
       const transaction = new VersionedTransaction(messageV0);
 
-      // 3. Sign with Mint Keypair (Critical for creation)
-      // This applies the Mint's signature to the VersionedTransaction object
+      // 3. Sign with Mint Keypair (Always required for creation)
       transaction.sign([mintKeypair]);
 
-      // 4. Send via Adapter
-      // The adapter will add the wallet (payer) signature
-      const tx = await sendTransaction(transaction, connection);
+      let txSignature: string;
 
+      // 4. Send Strategy (Mobile Fix)
+      // If the wallet supports direct signing (Phantom, Solflare, Mobile Adapter), use it.
+      // This bypasses the "signature must be base58" error by handling serialization manually.
+      if (signTransaction) {
+        const signedTx = await signTransaction(transaction);
+        // Send RAW transaction
+        txSignature = await connection.sendRawTransaction(
+          signedTx.serialize(),
+          {
+            skipPreflight: true, // IMPORTANT for mobile
+            maxRetries: 5,
+          }
+        );
+      } else {
+        // Fallback for wallets without signTransaction (unlikely on modern mobile)
+        txSignature = await sendTransaction(transaction, connection, {
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+      }
+
+      // 5. Confirm
       await connection.confirmTransaction(
         {
-          signature: tx,
+          signature: txSignature,
           blockhash,
           lastValidBlockHeight,
         },
         "confirmed"
       );
 
-      setSignature(tx);
+      setSignature(txSignature);
       setStatusMessage("Success!");
 
       onTokenCreated({
@@ -433,7 +453,10 @@ export const useTokenFactory = (onTokenCreated: (token: Token) => void) => {
       });
     } catch (e: any) {
       console.error(e);
-      setErrors({ form: e.message || "Transaction failed. Please try again." });
+      // Clean up error message for mobile
+      let msg = e.message || "Transaction failed";
+      if (msg.includes("User rejected")) msg = "Request rejected by wallet";
+      setErrors({ form: msg });
     } finally {
       setIsCreating(false);
       setUploadedKeypair(null);
