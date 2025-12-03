@@ -6,12 +6,13 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { Keypair, SystemProgram, Transaction } from "@solana/web3.js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle } from "lucide-react";
 import bs58 from "bs58";
 
 export function MobileDebug() {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction, signMessage, wallet } = useWallet();
+  // We grab signTransaction here
+  const { publicKey, signMessage, signTransaction, wallet } = useWallet();
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +22,6 @@ export function MobileDebug() {
   };
 
   // --- TEST 1: SIGN MESSAGE ---
-  // Simplest test. If this fails, Deep Linking is totally broken or blocked.
   const testSignMessage = async () => {
     if (!publicKey || !signMessage) return;
     setLoading(true);
@@ -29,9 +29,7 @@ export function MobileDebug() {
     try {
       const message = new TextEncoder().encode("Verify Mobile Connection");
       addLog("Requesting wallet signature...");
-      
       const signature = await signMessage(message);
-      
       addLog("Success! Wallet opened and signed.");
       addLog(`Sig: ${bs58.encode(signature).slice(0, 10)}...`);
     } catch (e: any) {
@@ -41,18 +39,17 @@ export function MobileDebug() {
     }
   };
 
-  // --- TEST 2: SIMPLE TRANSFER ---
-  // Standard 1-signer TX. If this works, the Adapter is set up correctly.
+  // --- TEST 2: SIMPLE TRANSFER (MANUAL FLOW) ---
   const testSimpleTx = async () => {
-    if (!publicKey) return;
+    if (!publicKey || !signTransaction) return;
     setLoading(true);
-    addLog("--- TEST 2: Simple Transfer (Self) ---");
+    addLog("--- TEST 2: Simple Transfer (Manual Flow) ---");
     try {
       const tx = new Transaction().add(
         SystemProgram.transfer({
           fromPubkey: publicKey,
-          toPubkey: publicKey, // Send to self
-          lamports: 100, // Tiny amount
+          toPubkey: publicKey,
+          lamports: 100,
         })
       );
 
@@ -60,15 +57,22 @@ export function MobileDebug() {
       tx.recentBlockhash = blockhash;
       tx.feePayer = publicKey;
 
-      addLog("Sending TX (Normal)...");
-      // Note: We use skipPreflight: true here to be safe on mobile
-      const sig = await sendTransaction(tx, connection, { skipPreflight: true });
+      addLog("1. Opening Wallet to Sign...");
       
-      addLog("TX Broadcasted!");
-      addLog(`Sig: ${sig.slice(0, 10)}...`);
+      // FORCE WALLET OPEN
+      const signedTx = await signTransaction(tx);
+      addLog("2. Wallet Signed! Broadcasting...");
+
+      // SEND RAW
+      const rawTx = signedTx.serialize();
+      const sig = await connection.sendRawTransaction(rawTx, {
+        skipPreflight: true,
+        maxRetries: 5
+      });
       
+      addLog(`3. Broadcasted! Sig: ${sig.slice(0, 10)}...`);
       await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
-      addLog("TX Confirmed on-chain.");
+      addLog("4. Confirmed on-chain.");
     } catch (e: any) {
       addLog(`ERROR: ${e.message}`);
     } finally {
@@ -76,23 +80,17 @@ export function MobileDebug() {
     }
   };
 
-  // --- TEST 3: MULTI-SIG (THE TOKEN FACTORY SCENARIO) ---
-  // This mimics your Create Token flow. It has 2 signers: User + Dummy Keypair.
-  // REPLACE ONLY THE testMultiSigTx FUNCTION in components/mobile-debug.tsx
-
-  // --- TEST 3: MULTI-SIG (THE TOKEN FACTORY SCENARIO) ---
+  // --- TEST 3: MULTI-SIG (MANUAL FLOW) ---
   const testMultiSigTx = async () => {
-    if (!publicKey) return;
+    if (!publicKey || !signTransaction) return;
     setLoading(true);
-    addLog("--- TEST 3: Multi-Sig (Mint Scenario) ---");
+    addLog("--- TEST 3: Multi-Sig (Manual Flow) ---");
     try {
-      // 1. Generate a dummy keypair (acts like your Mint)
       const dummyKeypair = Keypair.generate();
-      addLog(`Generated Dummy Signer: ${dummyKeypair.publicKey.toBase58().slice(0, 6)}...`);
+      addLog(`Dummy Signer: ${dummyKeypair.publicKey.toBase58().slice(0, 6)}...`);
 
       const tx = new Transaction();
-
-      // Instruction A: You pay (Requires Your Signature)
+      // Instruction A: User Pays
       tx.add(
         SystemProgram.transfer({
           fromPubkey: publicKey,
@@ -100,10 +98,7 @@ export function MobileDebug() {
           lamports: 1000, 
         })
       );
-
-      // Instruction B: Dummy signs (Requires Dummy Signature)
-      // We add this solely to force the transaction to REQUIRE the dummy keypair.
-      // Since it sends 0 lamports, it's harmless but makes the signature mandatory.
+      // Instruction B: Dummy Signs (Forces 2nd signature)
       tx.add(
         SystemProgram.transfer({
           fromPubkey: dummyKeypair.publicKey,
@@ -116,19 +111,30 @@ export function MobileDebug() {
       tx.recentBlockhash = blockhash;
       tx.feePayer = publicKey;
 
-      // 3. IMPORTANT: The Adapter logic
-      addLog("Calling sendTransaction with extra signers...");
+      // STEP A: Sign locally with Dummy
+      tx.partialSign(dummyKeypair);
+
+      addLog("1. Opening Wallet to Sign...");
+
+      // STEP B: Force Wallet Open for User Signature
+      const signedTx = await signTransaction(tx);
       
-      const sig = await sendTransaction(tx, connection, { 
-        signers: [dummyKeypair], // Now the wallet will accept this because Instruction B needs it
-        skipPreflight: true      
+      addLog("2. Wallet Signed! Re-applying Dummy sig...");
+
+      // STEP C: RE-SIGN with Dummy (Fixes 'Missing Signature' if mobile stripped it)
+      // This is safe to do again.
+      signedTx.partialSign(dummyKeypair);
+
+      // STEP D: Broadcast
+      const rawTx = signedTx.serialize();
+      const sig = await connection.sendRawTransaction(rawTx, {
+        skipPreflight: true,
+        maxRetries: 5
       });
 
-      addLog("TX Broadcasted!");
-      addLog(`Sig: ${sig.slice(0, 10)}...`);
-      
+      addLog(`3. Broadcasted! Sig: ${sig.slice(0, 10)}...`);
       await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
-      addLog("TX Confirmed.");
+      addLog("4. Confirmed on-chain.");
     } catch (e: any) {
       addLog(`ERROR: ${e.message}`);
     } finally {
@@ -138,7 +144,6 @@ export function MobileDebug() {
 
   return (
     <div className="space-y-4">
-      {/* STATUS CARD */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
@@ -156,9 +161,7 @@ export function MobileDebug() {
             <div className="flex justify-between">
               <span>Mobile?:</span>
               <span>
-                {/* Heuristic to check if it's likely MWA */}
-                {wallet?.adapter.name === "Solana Mobile Wallet Adapter" || 
-                 wallet?.adapter.name === "Mobile Wallet Adapter" 
+                {wallet?.adapter.name === "Mobile Wallet Adapter" 
                  ? <CheckCircle className="h-4 w-4 text-green-500 inline" /> 
                  : <span className="text-orange-500">Standard/Ext</span>}
               </span>
@@ -171,34 +174,18 @@ export function MobileDebug() {
         </CardContent>
       </Card>
 
-      {/* ACTIONS */}
       <div className="grid gap-3">
-        <Button 
-          onClick={testSignMessage} 
-          disabled={loading || !publicKey}
-          variant="outline"
-        >
+        <Button onClick={testSignMessage} disabled={loading || !publicKey} variant="outline">
           {loading ? <Loader2 className="animate-spin mr-2" /> : "1. Test Sign Message"}
         </Button>
-
-        <Button 
-          onClick={testSimpleTx} 
-          disabled={loading || !publicKey}
-          variant="secondary"
-        >
-          {loading ? <Loader2 className="animate-spin mr-2" /> : "2. Test Simple TX (1 Signer)"}
+        <Button onClick={testSimpleTx} disabled={loading || !publicKey} variant="secondary">
+          {loading ? <Loader2 className="animate-spin mr-2" /> : "2. Test Simple TX (Manual)"}
         </Button>
-
-        <Button 
-          onClick={testMultiSigTx} 
-          disabled={loading || !publicKey}
-          className="btn-fintech"
-        >
-          {loading ? <Loader2 className="animate-spin mr-2" /> : "3. Test Multi-Sig (2 Signers)"}
+        <Button onClick={testMultiSigTx} disabled={loading || !publicKey} className="btn-fintech">
+          {loading ? <Loader2 className="animate-spin mr-2" /> : "3. Test Multi-Sig (Manual)"}
         </Button>
       </div>
 
-      {/* LOGS CONSOLE */}
       <div className="bg-black/90 text-green-400 font-mono text-xs p-4 rounded-lg h-64 overflow-y-auto">
         {logs.length === 0 && <span className="text-gray-500">Logs will appear here...</span>}
         {logs.map((log, i) => (
