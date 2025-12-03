@@ -21,13 +21,15 @@ import {
   PublicKey,
   LAMPORTS_PER_SOL,
   SystemProgram,
+  TransactionMessage,
+  VersionedTransaction,
 } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import rawIdl from "../idl/solana_forge.json";
 import { SolanaForge } from "../idl/solana_forge";
 import { ProgramContext } from "./solana-context";
-import { DebugConsole } from "./DebugConsole"; // IMPORT THE DEBUG CONSOLE
+import { DebugConsole } from "./DebugConsole";
 
 // --- ANCHOR SETUP (Program Logic) ---
 const AnchorSetup = ({ children }: { children: ReactNode }) => {
@@ -94,6 +96,8 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
     }
     try {
       console.log("Initializing User...");
+
+      // Check Balance for Airdrop
       const balance = await provider.connection.getBalance(publicKey);
       if (balance < 0.5 * LAMPORTS_PER_SOL) {
         console.log("Requesting Airdrop...");
@@ -114,22 +118,32 @@ const AnchorSetup = ({ children }: { children: ReactNode }) => {
         program.programId
       );
 
-      const transaction = await program.methods
+      // 1. Get Instruction
+      const instruction = await program.methods
         .initializeUser()
         .accountsPartial({
           userAccount: userAccountPda,
           payer: publicKey,
           systemProgram: SystemProgram.programId,
         })
-        .transaction();
+        .instruction();
 
-      transaction.feePayer = publicKey;
+      // 2. Get Blockhash
       const { blockhash, lastValidBlockHeight } =
         await provider.connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
+
+      // 3. Create Versioned Transaction
+      const messageV0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: [instruction],
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
 
       console.log("Sending Transaction...");
       const signature = await sendTransaction(transaction, provider.connection);
+
       await provider.connection.confirmTransaction(
         { signature, blockhash, lastValidBlockHeight },
         "confirmed"

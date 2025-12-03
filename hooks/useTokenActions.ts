@@ -2,7 +2,12 @@
 
 import { useCallback, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import {
+  PublicKey,
+  TransactionMessage,
+  VersionedTransaction,
+  TransactionInstruction,
+} from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
@@ -12,11 +17,8 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
-// REMOVED: import { triggerMobileWalletRedirect } from "@/lib/wallet-utils";
-
 export function useTokenActions() {
   const { connection } = useConnection();
-  // Destructure sendTransaction
   const { publicKey, sendTransaction } = useWallet();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -37,7 +39,7 @@ export function useTokenActions() {
         const dest = new PublicKey(destinationAddress);
         const progId = new PublicKey(programId);
 
-        const transaction = new Transaction();
+        const instructions: TransactionInstruction[] = [];
 
         // 1. Get Source Account
         const sourceATA = getAssociatedTokenAddressSync(
@@ -64,7 +66,7 @@ export function useTokenActions() {
           console.log(
             "Destination ATA missing. Adding creation instruction..."
           );
-          transaction.add(
+          instructions.push(
             createAssociatedTokenAccountInstruction(
               publicKey, // Payer
               destATA, // Account to create
@@ -79,7 +81,7 @@ export function useTokenActions() {
         // 4. Add Transfer Instruction
         const amountBigInt = BigInt(Math.floor(amount * 10 ** decimals));
 
-        transaction.add(
+        instructions.push(
           createTransferInstruction(
             sourceATA,
             destATA,
@@ -90,15 +92,19 @@ export function useTokenActions() {
           )
         );
 
-        // 5. Setup Transaction
+        // 5. Build Versioned Transaction
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = publicKey;
 
-        // REMOVED: triggerMobileWalletRedirect(wallet);
+        const messageV0 = new TransactionMessage({
+          payerKey: publicKey,
+          recentBlockhash: blockhash,
+          instructions: instructions,
+        }).compileToV0Message();
 
-        // 6. Send (Adapter handles Deep Link automatically)
+        const transaction = new VersionedTransaction(messageV0);
+
+        // 6. Send
         const signature = await sendTransaction(transaction, connection);
 
         // 7. Confirm
@@ -146,7 +152,7 @@ export function useTokenActions() {
           throw new Error("You are not the mint authority for this token.");
         }
 
-        const transaction = new Transaction();
+        const instructions: TransactionInstruction[] = [];
 
         // 2. Get User ATA
         const userATA = getAssociatedTokenAddressSync(
@@ -160,7 +166,7 @@ export function useTokenActions() {
         // 3. Create ATA if needed
         const userAccountInfo = await connection.getAccountInfo(userATA);
         if (!userAccountInfo) {
-          transaction.add(
+          instructions.push(
             createAssociatedTokenAccountInstruction(
               publicKey,
               userATA,
@@ -174,7 +180,7 @@ export function useTokenActions() {
 
         // 4. Add Mint Instruction
         const amountBigInt = BigInt(Math.floor(amount * 10 ** decimals));
-        transaction.add(
+        instructions.push(
           createMintToInstruction(
             mint,
             userATA,
@@ -185,14 +191,19 @@ export function useTokenActions() {
           )
         );
 
-        // 5. Send & Confirm
+        // 5. Build Versioned Transaction
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = publicKey;
 
-        // REMOVED: triggerMobileWalletRedirect(wallet);
+        const messageV0 = new TransactionMessage({
+          payerKey: publicKey,
+          recentBlockhash: blockhash,
+          instructions: instructions,
+        }).compileToV0Message();
 
+        const transaction = new VersionedTransaction(messageV0);
+
+        // 6. Send
         const signature = await sendTransaction(transaction, connection);
 
         await connection.confirmTransaction(

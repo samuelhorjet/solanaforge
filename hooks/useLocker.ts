@@ -2,11 +2,15 @@
 
 import { useState, useCallback } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import {
-  getAssociatedTokenAddressSync,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+  PublicKey,
+  SystemProgram,
+  SYSVAR_RENT_PUBKEY,
+  TransactionMessage,
+  VersionedTransaction,
+} from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { BN } from "@coral-xyz/anchor";
 import { useProgram } from "@/components/solana-provider";
 import { fetchTokenMetadata } from "@/hooks/useTokenMetadata";
@@ -31,7 +35,6 @@ export interface LockRecord {
 
 export function useLocker() {
   const { connection } = useConnection();
-  // Destructure sendTransaction here
   const { publicKey, sendTransaction } = useWallet();
   const { program } = useProgram();
 
@@ -39,7 +42,7 @@ export function useLocker() {
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // ... (Keep existing decodeLockRecord and fetchUserLocks as they are - no changes needed there) ...
+  // --- HELPER: Decode Lock Record (Unchanged) ---
   const decodeLockRecord = (buffer: Buffer, pubkey: PublicKey) => {
     try {
       let offset = 8;
@@ -69,6 +72,7 @@ export function useLocker() {
     }
   };
 
+  // --- FETCH LOCKS (Unchanged) ---
   const fetchUserLocks = useCallback(async () => {
     if (!publicKey) return;
     setIsLoading(true);
@@ -148,7 +152,7 @@ export function useLocker() {
     }
   }, [publicKey, connection]);
 
-  // --- 3. CREATE LOCK ---
+  // --- 3. CREATE LOCK (VersionedTransaction) ---
   const createLock = async (
     mintAddress: string,
     amount: string,
@@ -196,8 +200,8 @@ export function useLocker() {
         tokenProgramId
       );
 
-      // --- FIX: Use Transaction Builder + sendTransaction ---
-      const transaction = await program.methods
+      // 1. Get Instruction
+      const instruction = await program.methods
         .proxyLockTokens(amountBN, unlockTimestamp, lockIdBN)
         .accountsPartial({
           owner: publicKey,
@@ -210,19 +214,28 @@ export function useLocker() {
           tokenProgram: tokenProgramId,
           rent: SYSVAR_RENT_PUBKEY,
         })
-        .transaction();
+        .instruction();
 
-      transaction.feePayer = publicKey;
+      // 2. Build V0 Transaction
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
 
+      const messageV0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: [instruction],
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
+
+      // 3. Send & Confirm
       const tx = await sendTransaction(transaction, connection);
 
       await connection.confirmTransaction(
         { signature: tx, blockhash, lastValidBlockHeight },
         "confirmed"
       );
+
       setTimeout(() => fetchUserLocks(), 2000);
       return tx;
     } catch (error) {
@@ -233,7 +246,7 @@ export function useLocker() {
     }
   };
 
-  // --- 4. WITHDRAW ---
+  // --- 4. WITHDRAW (VersionedTransaction) ---
   const withdrawTokens = async (lock: LockRecord) => {
     if (!program || !publicKey) throw new Error("Wallet not connected");
     setIsProcessing(true);
@@ -265,8 +278,8 @@ export function useLocker() {
         tokenProgramId
       );
 
-      // --- FIX: Use Transaction Builder + sendTransaction ---
-      const transaction = await program.methods
+      // 1. Get Instruction
+      const instruction = await program.methods
         .proxyWithdrawTokens(lockIdBN)
         .accountsPartial({
           owner: publicKey,
@@ -277,19 +290,28 @@ export function useLocker() {
           tokenProgram: tokenProgramId,
           lockerProgram: DLOOM_LOCKER_PROGRAM_ID,
         })
-        .transaction();
+        .instruction();
 
-      transaction.feePayer = publicKey;
+      // 2. Build V0 Transaction
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
 
+      const messageV0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: [instruction],
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
+
+      // 3. Send & Confirm
       const tx = await sendTransaction(transaction, connection);
 
       await connection.confirmTransaction(
         { signature: tx, blockhash, lastValidBlockHeight },
         "confirmed"
       );
+
       await fetchUserLocks();
       return tx;
     } catch (error) {

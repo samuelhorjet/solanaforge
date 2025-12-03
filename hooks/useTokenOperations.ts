@@ -3,7 +3,13 @@
 import { useState, useCallback } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useProgram } from "@/components/solana-provider";
-import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  SYSVAR_RENT_PUBKEY,
+  TransactionMessage,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import * as anchor from "@coral-xyz/anchor";
 import { BN } from "@coral-xyz/anchor";
@@ -14,7 +20,6 @@ const DLOOM_LOCKER_PROGRAM_ID = new PublicKey(
 
 export function useTokenOperations() {
   const { connection } = useConnection();
-  // Destructure sendTransaction
   const { publicKey, sendTransaction } = useWallet();
   const { program } = useProgram();
 
@@ -67,8 +72,8 @@ export function useTokenOperations() {
         tokenProgram
       );
 
-      // --- FIX: Transaction + sendTransaction ---
-      const transaction = await program.methods
+      // 1. Get Instruction
+      const instruction = await program.methods
         .proxyLockTokens(amountBN, unlockTimestamp, lockIdBN)
         .accountsPartial({
           owner: publicKey,
@@ -81,13 +86,21 @@ export function useTokenOperations() {
           tokenProgram: tokenProgram,
           rent: SYSVAR_RENT_PUBKEY,
         })
-        .transaction();
+        .instruction();
 
-      transaction.feePayer = publicKey;
+      // 2. Build V0 Transaction
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
 
+      const messageV0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: [instruction],
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
+
+      // 3. Send & Confirm
       const signature = await sendTransaction(transaction, connection);
 
       await connection.confirmTransaction(
@@ -126,7 +139,8 @@ export function useTokenOperations() {
         tokenProgramId
       );
 
-      const transaction = await program.methods
+      // 1. Get Instruction
+      const instruction = await program.methods
         .proxyWithdrawTokens(lockIdBN)
         .accountsPartial({
           owner: publicKey,
@@ -137,13 +151,21 @@ export function useTokenOperations() {
           tokenProgram: tokenProgramId,
           lockerProgram: DLOOM_LOCKER_PROGRAM_ID,
         })
-        .transaction();
+        .instruction();
 
-      transaction.feePayer = publicKey;
+      // 2. Build V0 Transaction
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
 
+      const messageV0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: [instruction],
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
+
+      // 3. Send & Confirm
       const signature = await sendTransaction(transaction, connection);
 
       await connection.confirmTransaction(
@@ -184,7 +206,8 @@ export function useTokenOperations() {
         tokenProgram
       );
 
-      const transaction = await program.methods
+      // 1. Get Instruction
+      const instruction = await program.methods
         .proxyBurnFromWallet(amountBN)
         .accountsPartial({
           burner: publicKey,
@@ -193,13 +216,21 @@ export function useTokenOperations() {
           lockerProgram: DLOOM_LOCKER_PROGRAM_ID,
           tokenProgram: tokenProgram,
         })
-        .transaction();
+        .instruction();
 
-      transaction.feePayer = publicKey;
+      // 2. Build V0 Transaction
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
 
+      const messageV0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: [instruction],
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
+
+      // 3. Send & Confirm
       const signature = await sendTransaction(transaction, connection);
 
       await connection.confirmTransaction(
@@ -231,7 +262,8 @@ export function useTokenOperations() {
       const mint = new PublicKey(mintAddress);
       const { lockRecord, vault } = deriveLockerPDAs(lockIdBN, publicKey, mint);
 
-      const transaction = await program.methods
+      // 1. Get Instruction
+      const instruction = await program.methods
         .proxyBurnFromLock(amountBN, lockIdBN)
         .accountsPartial({
           owner: publicKey,
@@ -243,13 +275,21 @@ export function useTokenOperations() {
           ),
           lockerProgram: DLOOM_LOCKER_PROGRAM_ID,
         })
-        .transaction();
+        .instruction();
 
-      transaction.feePayer = publicKey;
+      // 2. Build V0 Transaction
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
 
+      const messageV0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: [instruction],
+      }).compileToV0Message();
+
+      const transaction = new VersionedTransaction(messageV0);
+
+      // 3. Send & Confirm
       const signature = await sendTransaction(transaction, connection);
 
       await connection.confirmTransaction(
