@@ -28,7 +28,6 @@ import { Program } from "@coral-xyz/anchor";
 import rawIdl from "../idl/solana_forge.json";
 import { SolanaForge } from "../idl/solana_forge";
 import { ProgramContext } from "./solana-context";
-import { DebugConsole } from "./DebugConsole";
 
 const AnchorSetup = ({ children }: { children: ReactNode }) => {
   const network = WalletAdapterNetwork.Devnet;
@@ -242,7 +241,6 @@ export default function ClientWalletProvider({
   return (
     <WalletProvider wallets={wallets} autoConnect onError={onError}>
       <WalletModalProvider>
-        <DebugConsole />
         <AnchorSetup>{children}</AnchorSetup>
       </WalletModalProvider>
     </WalletProvider>
