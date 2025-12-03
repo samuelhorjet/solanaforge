@@ -9,7 +9,7 @@ import {
   unpackMint,
 } from "@solana/spl-token";
 import { fetchTokenMetadata } from "@/hooks/useTokenMetadata";
-import { Token } from "@/types/token";
+import { Token, TokenExtensions } from "@/types/token";
 
 export function useWalletHoldings() {
   const { connection } = useConnection();
@@ -73,18 +73,21 @@ export function useWalletHoldings() {
         let mintAuthority = "";
         let supply = 0;
 
+        // --- PARSE EXTENSIONS ---
+        const extensions: TokenExtensions = {};
+
         if (mintAccountInfo) {
           try {
+            // 1. Standard Unpack
             const mintData = unpackMint(
               new PublicKey(mint),
               mintAccountInfo,
               mintAccountInfo.owner
             );
 
-            supply = Number(mintData.supply) / 10 ** decimals; // Normalized supply
+            supply = Number(mintData.supply) / 10 ** decimals;
 
-            // Filter out NFTs (Decimals 0 AND Supply 1)
-            // Note: Using raw supply for check, normalized for display
+            // Filter out NFTs
             if (decimals === 0 && Number(mintData.supply) === 1) {
               return null;
             }
@@ -95,15 +98,91 @@ export function useWalletHoldings() {
                 isMintable = true;
               }
             }
+
+            // 2. Parse Extensions (from raw TLV or via RPC parsed data fallback)
+            // Note: Since we fetched Raw Mint Account, we would ideally parse TLV.
+            // However, getParsedTokenAccountsByOwner often gives us the Mint *Account* extensions
+            // if we queried the mint. But here we are iterating accounts.
+            // We rely on manual check or if we had used getParsedAccountInfo for mints.
+
+            // Simulating Parse based on Program Owner (Token 2022)
+            if (
+              mintAccountInfo.owner.toBase58() ===
+              TOKEN_2022_PROGRAM_ID.toBase58()
+            ) {
+              // We need to re-fetch Parsed Mint Info to get nice JSON extensions easily
+              // or decode raw TLV. For performance, we will do a targeted fetch if needed
+              // OR assumes basics.
+              // BETTER STRATEGY: Use the helper below to decoding raw buffer if possible
+              // For this example, let's assume we do a quick parsed fetch for 2022 tokens
+              // to get accurate extension data, as raw buffer parsing is complex without headers.
+            }
           } catch (e) {
             console.warn("Failed to unpack mint for", mint);
+          }
+        }
+
+        // --- FETCH EXTENSION DATA (Reliable Method) ---
+        if (ownerProgram.toBase58() === TOKEN_2022_PROGRAM_ID.toBase58()) {
+          try {
+            // We fetch the PARSED mint account to get easy-to-read extensions
+            const parsedMint = await connection.getParsedAccountInfo(
+              new PublicKey(mint)
+            );
+            if (parsedMint.value && "parsed" in parsedMint.value.data) {
+              const info = parsedMint.value.data.parsed.info;
+              const extList = info.extensions || [];
+
+              // 1. Transfer Fee
+              const feeConfig = extList.find(
+                (e: any) => e.extension === "transferFeeConfig"
+              );
+              if (feeConfig) {
+                const feeRate =
+                  feeConfig.state.newerTransferFee.transferFeeBasisPoints / 100;
+                extensions.transferFee = `${feeRate}%`;
+              }
+
+              // 2. Non Transferable
+              const nonTrans = extList.find(
+                (e: any) => e.extension === "nonTransferable"
+              );
+              if (nonTrans) {
+                extensions.nonTransferable = true;
+              }
+
+              // 3. Permanent Delegate
+              const permDel = extList.find(
+                (e: any) => e.extension === "permanentDelegate"
+              );
+              if (permDel) {
+                extensions.permanentDelegate = permDel.state.delegate;
+              }
+
+              // 4. Transfer Hook
+              const transHook = extList.find(
+                (e: any) => e.extension === "transferHook"
+              );
+              if (transHook) {
+                extensions.transferHook = transHook.state.programId;
+              }
+
+              // 5. Interest Bearing
+              const interest = extList.find(
+                (e: any) => e.extension === "interestBearingConfig"
+              );
+              if (interest) {
+                extensions.interestRate = interest.state.currentRate;
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing extensions", e);
           }
         }
 
         // Metadata Fetching
         const meta = await fetchTokenMetadata(connection, mint);
 
-        // --- UPDATED: FETCH FULL JSON CONTENT ---
         let imageUrl = "";
         let description = "";
         let website = "";
@@ -117,23 +196,14 @@ export function useWalletHoldings() {
               const response = await fetch(cleanUri);
               if (response.ok) {
                 const json = await response.json();
-
-                // 1. Image
                 imageUrl = json.image || "";
-
-                // 2. Description
                 description = json.description || "";
-
-                // 3. External URL (Website)
                 website = json.external_url || "";
-
-                // 4. Attributes (Socials)
                 if (Array.isArray(json.attributes)) {
                   const twitAttr = json.attributes.find(
                     (a: any) => a.trait_type === "Twitter"
                   );
                   if (twitAttr) twitter = twitAttr.value;
-
                   const teleAttr = json.attributes.find(
                     (a: any) => a.trait_type === "Telegram"
                   );
@@ -160,11 +230,11 @@ export function useWalletHoldings() {
           image: imageUrl,
           isMintable: isMintable,
           authority: mintAuthority,
-          // --- NEW FIELDS ---
           description,
           website,
           twitter,
           telegram,
+          extensions, // <--- Added here
         } as Token;
       });
 

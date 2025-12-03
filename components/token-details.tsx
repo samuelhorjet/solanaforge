@@ -29,6 +29,8 @@ import {
   Percent,
   Ban,
   User,
+  Activity,
+  TrendingUp,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -41,6 +43,16 @@ interface TokenDetailsProps {
 
 export function TokenDetails({ token, onBack }: TokenDetailsProps) {
   const isToken2022 = token.programId === TOKEN_2022_PROGRAM_ID.toBase58();
+  const ext = token.extensions || {};
+
+  // Count active extensions for display
+  const activeExtensions = [
+    ext.transferFee,
+    ext.nonTransferable,
+    ext.permanentDelegate,
+    ext.transferHook,
+    ext.interestRate,
+  ].filter(Boolean).length;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -87,7 +99,6 @@ export function TokenDetails({ token, onBack }: TokenDetailsProps) {
 
       {/* --- HERO CARD --- */}
       <motion.div variants={item}>
-        {/* Removed the background icon ("watermark") div here */}
         <Card className="overflow-hidden border-none shadow-xl bg-linear-to-br from-background to-muted/50">
           <CardContent className="p-8 relative z-10">
             <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
@@ -287,8 +298,8 @@ export function TokenDetails({ token, onBack }: TokenDetailsProps) {
         </motion.div>
       </div>
 
-      {/* --- TOKEN 2022 EXTENSIONS SECTION --- */}
-      {isToken2022 && (
+      {/* --- TOKEN 2022 EXTENSIONS SECTION (DYNAMIC) --- */}
+      {isToken2022 && activeExtensions > 0 && (
         <motion.div variants={item}>
           <Card className="border-blue-500/20 bg-blue-50/30 dark:bg-blue-900/10">
             <CardHeader>
@@ -296,47 +307,95 @@ export function TokenDetails({ token, onBack }: TokenDetailsProps) {
                 <Zap className="h-5 w-5" /> Token-2022 Extensions
               </CardTitle>
               <CardDescription>
-                Advanced features enabled on this asset.
+                Active features detected on this asset.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="flex items-start gap-3 p-3 bg-background rounded-lg border">
-                  <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
-                    <Percent className="h-4 w-4 text-blue-600" />
+                {/* 1. TRANSFER FEE */}
+                {ext.transferFee && (
+                  <div className="flex items-start gap-3 p-3 bg-background rounded-lg border">
+                    <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
+                      <Percent className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold">Transfer Fees</h5>
+                      <p className="text-lg font-bold text-blue-600">
+                        {ext.transferFee}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Fee on every transfer
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h5 className="text-sm font-semibold">Transfer Fees</h5>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      May apply on transfers. Check explorer for exact rates.
-                    </p>
+                )}
+
+                {/* 2. NON TRANSFERABLE */}
+                {ext.nonTransferable && (
+                  <div className="flex items-start gap-3 p-3 bg-background rounded-lg border border-red-200">
+                    <div className="bg-red-100 dark:bg-red-900 p-2 rounded-full">
+                      <Ban className="h-4 w-4 text-red-600" />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-red-700 dark:text-red-400">
+                        Soulbound
+                      </h5>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Transfers are disabled. Tokens are bound to the wallet.
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-background rounded-lg border">
-                  <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-full">
-                    <Ban className="h-4 w-4 text-purple-600" />
+                )}
+
+                {/* 3. PERMANENT DELEGATE */}
+                {ext.permanentDelegate && (
+                  <div className="flex items-start gap-3 p-3 bg-background rounded-lg border">
+                    <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-full">
+                      <User className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold">
+                        Permanent Delegate
+                      </h5>
+                      <p className="text-xs font-mono bg-muted p-1 rounded mt-1 truncate w-40">
+                        {ext.permanentDelegate.slice(0, 4)}...
+                        {ext.permanentDelegate.slice(-4)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h5 className="text-sm font-semibold">Transfer Hook</h5>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Custom logic executes on every token transfer.
-                    </p>
+                )}
+
+                {/* 4. TRANSFER HOOK */}
+                {ext.transferHook && (
+                  <div className="flex items-start gap-3 p-3 bg-background rounded-lg border">
+                    <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-full">
+                      <Activity className="h-4 w-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold">Transfer Hook</h5>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Program: {ext.transferHook.slice(0, 6)}...
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-background rounded-lg border">
-                  <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-full">
-                    <User className="h-4 w-4 text-indigo-600" />
+                )}
+
+                {/* 5. INTEREST BEARING */}
+                {ext.interestRate !== undefined && (
+                  <div className="flex items-start gap-3 p-3 bg-background rounded-lg border">
+                    <div className="bg-green-100 dark:bg-green-900 p-2 rounded-full">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold">
+                        Interest Bearing
+                      </h5>
+                      <p className="text-lg font-bold text-green-600">
+                        {ext.interestRate}%
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h5 className="text-sm font-semibold">
-                      Permanent Delegate
-                    </h5>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Authority exists to transfer/burn tokens without owner
-                      signature.
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>

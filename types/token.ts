@@ -1,5 +1,14 @@
 // FILE: types/token.ts
 
+export interface TokenExtensions {
+  nonTransferable?: boolean;
+  transferFee?: string; 
+  permanentDelegate?: string; 
+  transferHook?: string; 
+  interestRate?: number;
+  isFrozen?: boolean;
+}
+
 export interface Token {
   id: string; 
   mintAddress: string;
@@ -18,4 +27,5 @@ export interface Token {
   authority?: string; 
   status: "active" | "inactive";
   createdAt?: string; 
+  extensions?: TokenExtensions;
 }
